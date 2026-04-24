@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASCENT — City GHG Questionnaire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+  <!-- Animated background -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb1"></div>
+  <div class="bg-orb orb2"></div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="logo-mark">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <path d="M16 2L28 8V24L16 30L4 24V8L16 2Z" stroke="var(--teal)" stroke-width="1.5" fill="none"/>
+        <path d="M16 8L22 12V20L16 24L10 20V12L16 8Z" fill="var(--teal)" opacity="0.3"/>
+        <circle cx="16" cy="16" r="3" fill="var(--teal)"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <span class="logo-main">ASCENT</span>
+      <span class="logo-sub">WRI India · GHG Scenario Planning</span>
+    </div>
+    <div class="header-badge">IPCC 2019 / GPC · AR6 GWP</div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-tag">City-Level GHG Inventory Tool</div>
+    <h1 class="hero-title">
+      Calculate your city's<br>
+      <span class="gradient-text">carbon trajectory</span>
+    </h1>
+    <p class="hero-sub">Fill in the questionnaire below to generate a complete GHG emissions inventory, BAU projections, and mitigation scenarios aligned with the Paris Agreement.</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-sections">
+        <span class="ps active" data-sec="0">City Info</span>
+        <span class="ps" data-sec="1">Energy</span>
+        <span class="ps" data-sec="2">Transport</span>
+        <span class="ps" data-sec="3">Waste</span>
+        <span class="ps" data-sec="4">Agriculture</span>
+        <span class="ps" data-sec="5">Industry</span>
+        <span class="ps" data-sec="6">Targets</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </section>
+
+  <!-- Main Form -->
+  <main class="form-container">
+    <form id="ascentForm" novalidate>
+
+      <!-- ══════════════ SECTION 0: City Info ══════════════ -->
+      <div class="form-section active" data-section="0">
+        <div class="section-header">
+          <div class="section-number">01</div>
+          <div>
+            <h2 class="section-title">City Information</h2>
+            <p class="section-desc">Select your city and configure basic parameters</p>
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-group full">
+            <label class="field-label">Select State</label>
+            <div class="select-wrap">
+              <select id="stateSelect" class="field-input" required>
+                <option value="">— Choose a state —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">District</label>
+            <div class="select-wrap">
+              <select id="districtSelect" class="field-input" required>
+                <option value="">— Choose district —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">City / ULB</label>
+            <div class="select-wrap">
+              <select id="citySelect" name="city" class="field-input" required>
+                <option value="">— Choose city —</option>
+              </select>
+            </div>
+          </div>
+          <input type="hidden" id="stateHidden" name="state"/>
+          <input type="hidden" id="districtHidden" name="district"/>
+          <input type="hidden" id="climateHidden" name="climate"/>
+
+          <div class="field-group">
+            <label class="field-label">Government Tier</label>
+            <div class="select-wrap">
+              <select name="tier" class="field-input">
+                <option value="Municipal Corporation">Municipal Corporation</option>
+                <option value="Municipality">Municipality</option>
+                <option value="Town Panchayat">Town Panchayat</option>
+                <option value="District">District</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Climate Zone <span class="auto-badge">Auto-detected</span></label>
+            <input type="text" id="climateDisplay" class="field-input readonly-input" readonly placeholder="Detected after city selection"/>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Population</label>
+            <div class="input-wrap">
+              <input type="number" name="population" class="field-input" placeholder="e.g. 500000" min="1000" required/>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">City Area (km²)</label>
+            <input type="number" name="area_sqkm" class="field-input" placeholder="e.g. 150" min="1" required/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Base Year</label>
+            <input type="number" name="base_year" class="field-input" value="2023" min="2000" max="2030"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Annual Growth Rate</label>
+            <div class="input-with-unit">
+              <input type="number" name="growth_rate" class="field-input" value="3" min="0" max="20" step="0.1"/>
+              <span class="unit-badge">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 1: Energy / Buildings ══════════════ -->
+      <div class="form-section" data-section="1">
+        <div class="section-header">
+          <div class="section-number">02</div>
+          <div>
+            <h2 class="section-title">Energy & Buildings</h2>
+            <p class="section-desc">Fuel consumption and floor area across sectors</p>
+          </div>
+        </div>
+
+        <div class="subsection-tabs">
+          <button type="button" class="sub-tab active" data-sub="res">Residential</button>
+          <button type="button" class="sub-tab" data-sub="com">Commercial</button>
+          <button type="button" class="sub-tab" data-sub="ins">Institutional</button>
+          <button type="button" class="sub-tab" data-sub="ind">Industrial</button>
+          <button type="button" class="sub-tab" data-sub="egen">Energy Gen</button>
+        </div>
+
+        <!-- Residential -->
+        <div class="sub-panel active" id="sub-res">
+          <div class="panel-hint">💡 Floor area or direct fuel consumption — fill what you have. Empty fields default to zero.</div>
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Floor Area (m²)</label>
+              <input type="number" name="res_area" class="field-input" placeholder="e.g. 5000000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Electricity (MWh/yr)</label>
+              <input type="number" name="res_elec" class="field-input" placeholder="e.g. 120000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">LPG (tonnes/yr)</label>
+              <input type="number" name="res_lpg" class="field-input" placeholder="e.g. 5000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">PNG (tonnes/yr)</label>
+              <input type="number" name="res_png" class="field-input" placeholder="e.g. 200"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Firewood (tonnes/yr)</label>
+              <input type="number" name="res_firewood" class="field-input" placeholder="e.g. 1000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Coal (tonnes/yr)</label>
+              <input type="number" name="res_coal" class="field-input" placeholder="e.g. 500"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Kerosene (kL/yr)</label>
+              <input type="number" name="res_kero" class="field-input" placeholder="e.g. 100"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Diesel Genset (kL/yr)</label>
+              <input type="number" name="res_dg" class="field-input" placeholder="e.g. 200"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commercial -->
+        <div class="sub-panel" id="sub-com">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Floor Area (m²)</label>
+              <input type="number" name="com_area" class="field-input" placeholder="e.g. 1000000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Electricity (MWh/yr)</label>
+              <input type="number" name="com_elec" class="field-input" placeholder="e.g. 80000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">LPG (tonnes/yr)</label>
+              <input type="number" name="com_lpg" class="field-input" placeholder="e.g. 2000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">PNG (tonnes/yr)</label>
+              <input type="number" name="com_png" class="field-input" placeholder="e.g. 100"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Firewood (tonnes/yr)</label>
+              <input type="number" name="com_firewood" class="field-input" placeholder="e.g. 200"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Kerosene (kL/yr)</label>
+              <input type="number" name="com_kero" class="field-input" placeholder="e.g. 50"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Institutional -->
+        <div class="sub-panel" id="sub-ins">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Floor Area (m²)</label>
+              <input type="number" name="ins_area" class="field-input" placeholder="e.g. 500000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Electricity (MWh/yr)</label>
+              <input type="number" name="ins_elec" class="field-input" placeholder="e.g. 30000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">LPG (tonnes/yr)</label>
+              <input type="number" name="ins_lpg" class="field-input" placeholder="e.g. 500"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Industrial -->
+        <div class="sub-panel" id="sub-ind">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Floor Area (m²)</label>
+              <input type="number" name="ind_area" class="field-input" placeholder="e.g. 2000000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Electricity (MWh/yr)</label>
+              <input type="number" name="ind_elec" class="field-input" placeholder="e.g. 200000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">LPG (tonnes/yr)</label>
+              <input type="number" name="ind_lpg" class="field-input" placeholder="e.g. 1000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Coal (tonnes/yr)</label>
+              <input type="number" name="ind_coal" class="field-input" placeholder="e.g. 5000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Diesel (kL/yr)</label>
+              <input type="number" name="ind_diesel" class="field-input" placeholder="e.g. 2000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Natural Gas (tonnes/yr)</label>
+              <input type="number" name="ind_natgas" class="field-input" placeholder="e.g. 500"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Energy Generation -->
+        <div class="sub-panel" id="sub-egen">
+          <div class="panel-hint">🔋 Local power plants within city boundary only</div>
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Coal (TJ/yr)</label>
+              <input type="number" name="egen_coal" class="field-input" placeholder="e.g. 0"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Natural Gas (TJ/yr)</label>
+              <input type="number" name="egen_natgas" class="field-input" placeholder="e.g. 0"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Diesel (TJ/yr)</label>
+              <input type="number" name="egen_diesel" class="field-input" placeholder="e.g. 0"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 2: Transport ══════════════ -->
+      <div class="form-section" data-section="2">
+        <div class="section-header">
+          <div class="section-number">03</div>
+          <div>
+            <h2 class="section-title">Transport</h2>
+            <p class="section-desc">On-road, rail, water & aviation fuel consumption</p>
+          </div>
+        </div>
+
+        <div class="subsection-tabs">
+          <button type="button" class="sub-tab active" data-sub="road">On Road</button>
+          <button type="button" class="sub-tab" data-sub="rail">Railway</button>
+          <button type="button" class="sub-tab" data-sub="water">Water</button>
+          <button type="button" class="sub-tab" data-sub="avia">Aviation</button>
+        </div>
+
+        <div class="sub-panel active" id="sub-road">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Petrol (kL/yr)</label>
+              <input type="number" name="t_petrol" class="field-input" placeholder="e.g. 50000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Diesel (kL/yr)</label>
+              <input type="number" name="t_diesel" class="field-input" placeholder="e.g. 80000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Auto LPG (tonnes/yr)</label>
+              <input type="number" name="t_lpg" class="field-input" placeholder="e.g. 500"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">CNG (tonnes/yr)</label>
+              <input type="number" name="t_cng" class="field-input" placeholder="e.g. 2000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">EV Electricity (MWh/yr)</label>
+              <input type="number" name="t_elec" class="field-input" placeholder="e.g. 500"/>
+            </div>
+          </div>
+        </div>
+        <div class="sub-panel" id="sub-rail">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Diesel (kL/yr)</label>
+              <input type="number" name="r_diesel" class="field-input" placeholder="e.g. 5000"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Electricity (MWh/yr)</label>
+              <input type="number" name="r_elec" class="field-input" placeholder="e.g. 2000"/>
+            </div>
+          </div>
+        </div>
+        <div class="sub-panel" id="sub-water">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Petrol (kL/yr)</label>
+              <input type="number" name="w_pet" class="field-input" placeholder="e.g. 0"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Diesel (kL/yr)</label>
+              <input type="number" name="w_die" class="field-input" placeholder="e.g. 0"/>
+            </div>
+          </div>
+        </div>
+        <div class="sub-panel" id="sub-avia">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Aviation Gasoline (kL/yr)</label>
+              <input type="number" name="av_gas" class="field-input" placeholder="e.g. 0"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Jet Kerosene (kL/yr)</label>
+              <input type="number" name="av_jet" class="field-input" placeholder="e.g. 0"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 3: Waste ══════════════ -->
+      <div class="form-section" data-section="3">
+        <div class="section-header">
+          <div class="section-number">04</div>
+          <div>
+            <h2 class="section-title">Waste & Wastewater</h2>
+            <p class="section-desc">Solid waste and wastewater treatment data</p>
+          </div>
+        </div>
+
+        <div class="subsection-tabs">
+          <button type="button" class="sub-tab active" data-sub="sw">Solid Waste</button>
+          <button type="button" class="sub-tab" data-sub="ww">Wastewater</button>
+        </div>
+
+        <div class="sub-panel active" id="sub-sw">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Total MSW Generated (tonnes/day)</label>
+              <input type="number" name="sw_tot" class="field-input" placeholder="e.g. 500" step="0.1"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Food/Organic Fraction (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="sw_food_frac_pct" class="field-input" placeholder="e.g. 72.6" step="0.1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Managed Landfill Fraction (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="sw_lfm_pct" class="field-input" placeholder="e.g. 85" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Incineration Fraction (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="sw_inc_pct" class="field-input" placeholder="e.g. 0.4" step="0.1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Biogas Collection Efficiency (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="sw_gas_collection_pct" class="field-input" placeholder="e.g. 0" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-panel" id="sub-ww">
+          <div class="field-grid">
+            <div class="field-group">
+              <label class="field-label">Water Supply (LPCD)</label>
+              <input type="number" name="ww_lpcd" class="field-input" value="135" min="50" max="300"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">BOD per capita (g/person/day)</label>
+              <input type="number" name="ww_bod" class="field-input" value="34" step="0.1"/>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Aerobic Treatment (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="ww_aer_pct" class="field-input" placeholder="e.g. 17" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">UASB/Anaerobic Reactor (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="ww_uasb_pct" class="field-input" placeholder="e.g. 9" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Septic Tank (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="ww_sep_pct" class="field-input" placeholder="e.g. 0" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Open Discharge (%)</label>
+              <div class="input-with-unit">
+                <input type="number" name="ww_open_pct" class="field-input" placeholder="e.g. 6" step="1" min="0" max="100"/>
+                <span class="unit-badge">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 4: AFOLU ══════════════ -->
+      <div class="form-section" data-section="4">
+        <div class="section-header">
+          <div class="section-number">05</div>
+          <div>
+            <h2 class="section-title">Agriculture, Forestry & Land Use</h2>
+            <p class="section-desc">Livestock & land management (enter 0 if not applicable)</p>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field-group">
+            <label class="field-label">Dairy Cattle (indigenous, heads)</label>
+            <input type="number" name="dairy_cow_indigenous" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Dairy Cattle (crossbred, heads)</label>
+            <input type="number" name="dairy_cow_crossbred" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Non-dairy Cattle (heads)</label>
+            <input type="number" name="nondairy_cow_adult" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Buffalo (heads)</label>
+            <input type="number" name="dairy_buffalo" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Sheep (heads)</label>
+            <input type="number" name="sheep" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Goat (heads)</label>
+            <input type="number" name="goat" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Swine (heads)</label>
+            <input type="number" name="swine" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Poultry (heads)</label>
+            <input type="number" name="poultry" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Urban Green Cover (ha)</label>
+            <input type="number" name="green_ha" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Paddy Field Area (ha)</label>
+            <input type="number" name="paddy_ha" class="field-input" placeholder="e.g. 0"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 5: IPPU ══════════════ -->
+      <div class="form-section" data-section="5">
+        <div class="section-header">
+          <div class="section-number">06</div>
+          <div>
+            <h2 class="section-title">Industrial Processes & Product Use</h2>
+            <p class="section-desc">Production quantities for key industrial processes (enter 0 if not applicable)</p>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field-group">
+            <label class="field-label">Cement Clinker (tonnes/yr)</label>
+            <input type="number" name="cement_clinker" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Lime (High-Ca, tonnes/yr)</label>
+            <input type="number" name="lime_high_ca" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Steel BOF (tonnes/yr)</label>
+            <input type="number" name="steel_bof" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Steel EAF (tonnes/yr)</label>
+            <input type="number" name="steel_eaf" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Ammonia (tonnes/yr)</label>
+            <input type="number" name="ammonia" class="field-input" placeholder="e.g. 0"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Glass Production (tonnes/yr)</label>
+            <input type="number" name="glass" class="field-input" placeholder="e.g. 0"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ SECTION 6: Target Setting ══════════════ -->
+      <div class="form-section" data-section="6">
+        <div class="section-header">
+          <div class="section-number">07</div>
+          <div>
+            <h2 class="section-title">Target & Scenario Settings</h2>
+            <p class="section-desc">Define your planning horizon and ambition level</p>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field-group">
+            <label class="field-label">Interim Year 1</label>
+            <input type="number" name="interim1" class="field-input" value="2030" min="2025" max="2060"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Interim Year 2</label>
+            <input type="number" name="interim2" class="field-input" value="2040" min="2025" max="2060"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Target Year</label>
+            <input type="number" name="target_year" class="field-input" value="2050" min="2030" max="2070"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Reduction Target vs BAU</label>
+            <div class="input-with-unit">
+              <input type="number" name="target_pct_input" class="field-input" value="45" min="5" max="100" step="1"/>
+              <span class="unit-badge">%</span>
+            </div>
+          </div>
+          <div class="field-group full">
+            <label class="field-label">Renewable Energy Share by Target Year</label>
+            <div class="slider-wrap">
+              <input type="range" name="renewable_pct" class="range-slider" min="0" max="100" value="40" step="5"/>
+              <span class="range-val" id="renewableVal">40%</span>
+            </div>
+          </div>
+          <div class="field-group full">
+            <label class="field-label">EV Penetration by Target Year</label>
+            <div class="slider-wrap">
+              <input type="range" name="ev_pct" class="range-slider" min="0" max="100" value="30" step="5"/>
+              <span class="range-val" id="evVal">30%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit CTA -->
+        <div class="submit-area">
+          <div class="submit-summary" id="submitSummary">
+            <div class="ss-item"><span class="ss-label">City</span><span class="ss-val" id="ss-city">—</span></div>
+            <div class="ss-item"><span class="ss-label">State</span><span class="ss-val" id="ss-state">—</span></div>
+            <div class="ss-item"><span class="ss-label">Population</span><span class="ss-val" id="ss-pop">—</span></div>
+            <div class="ss-item"><span class="ss-label">Target Year</span><span class="ss-val" id="ss-yr">2050</span></div>
+          </div>
+          <button type="submit" class="btn-calculate" id="calculateBtn">
+            <span class="btn-text">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              Calculate GHG Inventory
+            </span>
+            <span class="btn-loading hidden">
+              <svg class="spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
+              Computing…
+            </span>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- Nav Buttons -->
+    <div class="form-nav">
+      <button type="button" class="nav-btn prev-btn" id="prevBtn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Back
+      </button>
+      <div class="nav-dots" id="navDots"></div>
+      <button type="button" class="nav-btn next-btn" id="nextBtn">
+        Next
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>ASCENT v2.0 · WRI India · IPCC 2019 GPC Framework · AR6 GWP (CH₄=29.8, N₂O=273)</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+  <script src="{{ url_for('static', filename='js/cities.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/form.js') }}"></script>
+</body>
+</html>
