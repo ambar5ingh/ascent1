@@ -291,83 +291,56 @@
       </div>
 
       <!-- ══════════════ SECTION 2: Transport ══════════════ -->
-      <div class="form-section" data-section="2">
-        <div class="section-header">
-          <div class="section-number">03</div>
-          <div>
-            <h2 class="section-title">Transport</h2>
-            <p class="section-desc">On-road, rail, water & aviation fuel consumption</p>
-          </div>
-        </div>
+     <!-- Add ABOVE the existing transport fuel table -->
+<div class='field-group full'>
+  <label class='field-label'>Transportation Data Approach</label>
+  <div class='subsection-tabs' style='max-width:380px'>
+    <button type='button' class='sub-tab active' data-trans='1' id='transOpt1'>
+      Fuel Sales Approach
+    </button>
+    <button type='button' class='sub-tab' data-trans='2' id='transOpt2'>
+      VKT Approach
+    </button>
+  </div>
+  <input type='hidden' name='trans_option' id='transOption' value='1'>
+</div>
 
-        <div class="subsection-tabs">
-          <button type="button" class="sub-tab active" data-sub="road">On Road</button>
-          <button type="button" class="sub-tab" data-sub="rail">Railway</button>
-          <button type="button" class="sub-tab" data-sub="water">Water</button>
-          <button type="button" class="sub-tab" data-sub="avia">Aviation</button>
-        </div>
-
-        <div class="sub-panel active" id="sub-road">
-          <div class="field-grid">
-            <div class="field-group">
-              <label class="field-label">Petrol (kL/yr)</label>
-              <input type="number" name="t_petrol" class="field-input" placeholder="e.g. 50000"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Diesel (kL/yr)</label>
-              <input type="number" name="t_diesel" class="field-input" placeholder="e.g. 80000"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Auto LPG (tonnes/yr)</label>
-              <input type="number" name="t_lpg" class="field-input" placeholder="e.g. 500"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">CNG (tonnes/yr)</label>
-              <input type="number" name="t_cng" class="field-input" placeholder="e.g. 2000"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">EV Electricity (MWh/yr)</label>
-              <input type="number" name="t_elec" class="field-input" placeholder="e.g. 500"/>
-            </div>
-          </div>
-        </div>
-        <div class="sub-panel" id="sub-rail">
-          <div class="field-grid">
-            <div class="field-group">
-              <label class="field-label">Diesel (kL/yr)</label>
-              <input type="number" name="r_diesel" class="field-input" placeholder="e.g. 5000"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Electricity (MWh/yr)</label>
-              <input type="number" name="r_elec" class="field-input" placeholder="e.g. 2000"/>
-            </div>
-          </div>
-        </div>
-        <div class="sub-panel" id="sub-water">
-          <div class="field-grid">
-            <div class="field-group">
-              <label class="field-label">Petrol (kL/yr)</label>
-              <input type="number" name="w_pet" class="field-input" placeholder="e.g. 0"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Diesel (kL/yr)</label>
-              <input type="number" name="w_die" class="field-input" placeholder="e.g. 0"/>
-            </div>
-          </div>
-        </div>
-        <div class="sub-panel" id="sub-avia">
-          <div class="field-grid">
-            <div class="field-group">
-              <label class="field-label">Aviation Gasoline (kL/yr)</label>
-              <input type="number" name="av_gas" class="field-input" placeholder="e.g. 0"/>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Jet Kerosene (kL/yr)</label>
-              <input type="number" name="av_jet" class="field-input" placeholder="e.g. 0"/>
-            </div>
-          </div>
-        </div>
-      </div>
+<!-- FUEL SALES PANEL (Option 1) -->
+<div id='trans-fuel-panel'>
+  <p class='panel-hint'>Enter total annual fuel sold/consumed by transport mode and fuel type.</p>
+  <!-- On Road row -->
+  <div class='field-grid'>
+    <div class='field-group'><label class='field-label'>Petrol (kL)</label>
+      <input class='field-input' type='number' name='t_pet' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Diesel (kL)</label>
+      <input class='field-input' type='number' name='t_die' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>CNG (tonne)</label>
+      <input class='field-input' type='number' name='t_cng' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Auto LPG (tonne)</label>
+      <input class='field-input' type='number' name='t_alpg' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Electricity / EV (MWh)</label>
+      <input class='field-input' type='number' name='t_elec' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>LNG (tonne)</label>
+      <input class='field-input' type='number' name='t_lng' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Hydrogen (kg)</label>
+      <input class='field-input' type='number' name='t_h2' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Lubricants (kL)</label>
+      <input class='field-input' type='number' name='t_lub' placeholder='0'></div>
+    <!-- Aviation -->
+    <div class='field-group'><label class='field-label'>Aviation Gasoline (kL)</label>
+      <input class='field-input' type='number' name='av_gas' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Jet Kerosene (kL)</label>
+      <input class='field-input' type='number' name='av_jet' placeholder='0'></div>
+    <!-- Railway -->
+    <div class='field-group'><label class='field-label'>Railway Diesel (kL)</label>
+      <input class='field-input' type='number' name='r_die' placeholder='0'></div>
+    <div class='field-group'><label class='field-label'>Railway Electricity (MWh)</label>
+      <input class='field-input' type='number' name='r_elec' placeholder='0'></div>
+  </div>
+</div>
+</div>
+</div>
+</div>
 
       <!-- ══════════════ SECTION 3: Waste ══════════════ -->
       <div class="form-section" data-section="3">
