@@ -462,3 +462,27 @@ body {
   .progress-sections { gap: 2px; }
   .ps { font-size: 0.58rem; }
 }
+/* ── Page Navigation Strip ── */
+.page-nav-strip .action-btn {
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+
+.page-nav-strip .action-btn.active {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+}
+
+.page-nav-strip .action-btn:hover {
+  background: rgba(0,180,166,0.08);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+/* ── Active page button in results header ── */
+.rh-actions .action-btn.active {
+  background: var(--teal);
+  color: white;
+  border-color: var(--teal);
+}
