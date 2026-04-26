@@ -91,7 +91,16 @@
       const panel = document.getElementById('sub-' + sub);
       if (panel) panel.classList.add('active');
     });
+  document.querySelectorAll('[data-trans]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-trans]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const opt = this.dataset.trans;
+    document.getElementById('transOption').value = opt;
+    document.getElementById('trans-fuel-panel').style.display = opt === '1' ? '' : 'none';
+    document.getElementById('trans-vkt-panel').style.display  = opt === '2' ? '' : 'none';
   });
+});
 
   // ── Slider display ─────────────────────────────────────
   document.querySelector('[name="renewable_pct"]').addEventListener('input', function() {
