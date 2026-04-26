@@ -2161,6 +2161,314 @@ def download_csv():
                      download_name=f"ASCENT_{city}_scenarios.csv",
                      mimetype="text/csv")
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUB-PAGE ROUTES  (9 detail pages mirroring Excel dashboard sheets)
+# ═══════════════════════════════════════════════════════════════════════════════
+ 
+PAGE_META = [
+    ("emission-profile",  "Base-Emission Profile District"),
+    ("base-inventory",    "Base Year GHG Inventory"),
+    ("bau-scenario",      "BAU Scenario"),
+    ("bau-district",      "Dashboard BAU District"),
+    ("target-setting",    "Target Setting"),
+    ("ep-scenario",       "E&P Scenario"),
+    ("ha-scenario",       "High Ambition Scenario"),
+    ("emission-graph",    "Emission Reduction Graph"),
+    ("scenario-compare",  "Dashboard Scenario Comparison"),
+]
+ 
+# Register one route per page using a closure so endpoint names are unique
+def _register_page_routes():
+    for slug, title in PAGE_META:
+        def _make_view(s=slug, t=title):
+            def view_fn():
+                return render_template("pages/page_base.html",
+                                       page_slug=s, page_title=t)
+            view_fn.__name__ = f"page_{s.replace('-', '_')}"
+            return view_fn
+        app.add_url_rule(f"/pages/{slug}",
+                         endpoint=f"page_{slug.replace('-','_')}",
+                         view_func=_make_view())
+ 
+_register_page_routes()
+ 
+ 
+# ─── Shared calculation helper ─────────────────────────────────────────────────
+def _run_full_calc(d):
+    """Run the complete calculation pipeline and return all intermediate results."""
+    bldg  = calc_buildings(d)
+    trans = calc_transport(d)
+    sw    = calc_solid_waste(d)
+    ww    = calc_wastewater(d)
+    afolu = calc_afolu(d)
+    ippu  = calc_ippu(d)
+ 
+    base_by_sector = {
+        "Energy Sector": bldg,
+        "Transport":     trans,
+        "Waste":         sw,
+        "Wastewater":    ww,
+        "AFOLU":         afolu,
+        "IPPU":          ippu,
+    }
+    base_total  = sum(sum(s.values()) for s in base_by_sector.values())
+    base_year   = int(d.get("base_year",   2025))
+    interim1    = int(d.get("interim1",    2030))
+    interim2    = int(d.get("interim2",    2040))
+    target_year = int(d.get("target_year", 2050))
+    years       = sorted({base_year, interim1, interim2, target_year})
+ 
+    bau_by_year = {yr: calc_bau(base_by_sector, d, yr) for yr in years}
+    bau_totals  = {yr: sum(sum(s.values()) for s in bau_by_year[yr].values())
+                   for yr in years}
+    targets             = calc_targets(bau_totals, d)
+    ep_totals, ha_totals = calc_scenarios(base_by_sector, bau_by_year, d)
+    budget_rows, total_inv = calc_mitigation_budget(
+        base_by_sector, bau_by_year, ha_totals, d)
+    milestones = calc_milestones(bau_totals, ep_totals, ha_totals, targets, d)
+ 
+    return dict(
+        base_by_sector=base_by_sector,
+        base_total=base_total,
+        base_year=base_year,
+        target_year=target_year,
+        years=years,
+        bau_by_year=bau_by_year,
+        bau_totals=bau_totals,
+        targets=targets,
+        ep_totals=ep_totals,
+        ha_totals=ha_totals,
+        budget_rows=budget_rows,
+        total_inv=total_inv,
+        milestones=milestones,
+        d=d,
+    )
+ 
+ 
+# ─── /api/page-data/<slug>  POST ──────────────────────────────────────────────
+@app.route("/api/page-data/<page_slug>", methods=["POST"])
+def api_page_data(page_slug):
+    """Single endpoint that returns JSON for whichever sub-page requests it."""
+    try:
+        d = request.get_json(force=True)
+        if not d:
+            return jsonify({"error": "No payload received"}), 400
+ 
+        c = _run_full_calc(d)   # c = calc results dict
+ 
+        dispatch = {
+            "emission-profile": _page_emission_profile,
+            "base-inventory":   _page_base_inventory,
+            "bau-scenario":     _page_bau_scenario,
+            "bau-district":     _page_bau_district,
+            "target-setting":   _page_target_setting,
+            "ep-scenario":      _page_ep_scenario,
+            "ha-scenario":      _page_ha_scenario,
+            "emission-graph":   _page_emission_graph,
+            "scenario-compare": _page_scenario_compare,
+        }
+        fn = dispatch.get(page_slug)
+        if fn is None:
+            return jsonify({"error": f"Unknown page: {page_slug}"}), 404
+ 
+        return jsonify(fn(c))
+ 
+    except Exception as ex:
+        import traceback
+        return jsonify({"error": str(ex), "trace": traceback.format_exc()}), 500
+ 
+ 
+# ─── Page data builders ────────────────────────────────────────────────────────
+ 
+def _page_emission_profile(c):
+    base_by_sector = c["base_by_sector"]
+    base_total     = c["base_total"]
+    d              = c["d"]
+    population     = max(float(d.get("population", 1) or 1), 1)
+    area           = max(float(d.get("area_sqkm",  1) or 1), 1)
+ 
+    rows = []
+    for sector, subs in base_by_sector.items():
+        for sub, val in subs.items():
+            rows.append({
+                "sector":           sector,
+                "subsector":        sub,
+                "emissions_tco2e":  round(val),
+                "share_pct":        round(val / base_total * 100, 2) if base_total else 0,
+                "per_capita":       round(val / population, 4),
+                "per_sqkm":         round(val / area, 2),
+            })
+    rows.sort(key=lambda x: -x["emissions_tco2e"])
+ 
+    return {
+        "profile_rows": rows,
+        "total":        round(base_total),
+        "per_capita":   round(base_total / population, 2),
+        "per_sqkm":     round(base_total / area, 2),
+        "base_year":    c["base_year"],
+        "city":         d.get("city", d.get("district", "City")),
+        "state":        d.get("state", ""),
+        "chart_pie":    make_pie_chart(base_by_sector),
+        "chart_bar":    make_subsector_bar(base_by_sector),
+    }
+ 
+ 
+def _page_base_inventory(c):
+    base_by_sector = c["base_by_sector"]
+    base_total     = c["base_total"]
+    rows = []
+    for sector, subs in base_by_sector.items():
+        sector_total = sum(subs.values())
+        for sub, val in subs.items():
+            rows.append({
+                "sector":        sector,
+                "subsector":     sub,
+                "co2_eq":        round(val),
+                "sector_share":  f"{val/sector_total*100:.1f}%" if sector_total else "0%",
+                "total_share":   f"{val/base_total*100:.1f}%" if base_total else "0%",
+            })
+        # subtotal row
+        rows.append({
+            "sector":        sector,
+            "subsector":     "── SUBTOTAL",
+            "co2_eq":        round(sector_total),
+            "sector_share":  "100%",
+            "total_share":   f"{sector_total/base_total*100:.1f}%" if base_total else "0%",
+            "is_subtotal":   True,
+        })
+    return {
+        "inventory_rows": rows,
+        "total":          round(base_total),
+        "base_year":      c["base_year"],
+        "city":           c["d"].get("city", c["d"].get("district", "City")),
+        "state":          c["d"].get("state", ""),
+        "chart_bar":      make_subsector_bar(base_by_sector),
+    }
+ 
+ 
+def _page_bau_scenario(c):
+    bau_by_year = c["bau_by_year"]
+    bau_totals  = c["bau_totals"]
+    years       = c["years"]
+    rows = []
+    for yr in years:
+        row = {"year": yr, "total_mt": round(bau_totals[yr] / 1e6, 3)}
+        for sector, subs in bau_by_year[yr].items():
+            row[sector] = round(sum(subs.values()) / 1e6, 3)
+        rows.append(row)
+    sectors = list(c["base_by_sector"].keys())
+    return {
+        "bau_rows":   rows,
+        "sectors":    sectors,
+        "years":      years,
+        "city":       c["d"].get("city", c["d"].get("district", "City")),
+        "state":      c["d"].get("state", ""),
+        "base_year":  c["base_year"],
+    }
+ 
+ 
+def _page_bau_district(c):
+    bau_totals  = c["bau_totals"]
+    bau_by_year = c["bau_by_year"]
+    years       = c["years"]
+    base_year   = c["base_year"]
+    population  = max(float(c["d"].get("population", 1) or 1), 1)
+    base_total  = bau_totals.get(base_year, 0)
+    return {
+        "bau_totals":        {str(y): round(v / 1e6, 3) for y, v in bau_totals.items()},
+        "per_capita_base":   round(base_total / population, 2),
+        "city":              c["d"].get("city", c["d"].get("district", "City")),
+        "state":             c["d"].get("state", ""),
+        "base_year":         base_year,
+        "target_year":       c["target_year"],
+        "trajectory_chart":  make_trajectory_chart(
+            bau_totals, bau_totals, bau_totals, bau_totals, years),
+        "pie_chart":         make_pie_chart(bau_by_year.get(base_year, {})),
+    }
+ 
+ 
+def _page_target_setting(c):
+    return {
+        "milestones":  c["milestones"],
+        "bau":         {str(y): round(v / 1e6, 3) for y, v in c["bau_totals"].items()},
+        "targets":     {str(y): round(v / 1e6, 3) for y, v in c["targets"].items()},
+        "ep":          {str(y): round(v / 1e6, 3) for y, v in c["ep_totals"].items()},
+        "ha":          {str(y): round(v / 1e6, 3) for y, v in c["ha_totals"].items()},
+        "city":        c["d"].get("city", c["d"].get("district", "City")),
+        "state":       c["d"].get("state", ""),
+        "base_year":   c["base_year"],
+        "target_year": c["target_year"],
+        "target_pct":  float(c["d"].get("target_pct", 0.45) or 0.45) * 100,
+    }
+ 
+ 
+def _page_ep_scenario(c):
+    years = c["years"]
+    return {
+        "ep":    {str(y): round(c["ep_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "bau":   {str(y): round(c["bau_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ha":    {str(y): round(c["ha_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "city":  c["d"].get("city", c["d"].get("district", "City")),
+        "state": c["d"].get("state", ""),
+        "years": years,
+        "chart": make_trajectory_chart(
+            c["bau_totals"], c["ep_totals"],
+            c["ha_totals"],  c["targets"], years),
+    }
+ 
+ 
+def _page_ha_scenario(c):
+    years = c["years"]
+    return {
+        "ha":    {str(y): round(c["ha_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "bau":   {str(y): round(c["bau_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ep":    {str(y): round(c["ep_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "city":  c["d"].get("city", c["d"].get("district", "City")),
+        "state": c["d"].get("state", ""),
+        "years": years,
+        "total_inv": round(c["total_inv"], 1),
+        "chart": make_trajectory_chart(
+            c["bau_totals"], c["ep_totals"],
+            c["ha_totals"],  c["targets"], years),
+        "budget_chart": make_budget_chart(c["budget_rows"]),
+    }
+ 
+ 
+def _page_emission_graph(c):
+    years = c["years"]
+    return {
+        "years":    years,
+        "bau":      {str(y): round(c["bau_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ep":       {str(y): round(c["ep_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ha":       {str(y): round(c["ha_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "target":   {str(y): round(c["targets"].get(y, 0) / 1e6, 3) for y in years},
+        "city":     c["d"].get("city", c["d"].get("district", "City")),
+        "state":    c["d"].get("state", ""),
+        "chart":    make_trajectory_chart(
+            c["bau_totals"], c["ep_totals"],
+            c["ha_totals"],  c["targets"], years),
+    }
+ 
+ 
+def _page_scenario_compare(c):
+    years = c["years"]
+    return {
+        "years":      years,
+        "bau":        {str(y): round(c["bau_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ep":         {str(y): round(c["ep_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "ha":         {str(y): round(c["ha_totals"].get(y, 0) / 1e6, 3) for y in years},
+        "target":     {str(y): round(c["targets"].get(y, 0) / 1e6, 3) for y in years},
+        "city":       c["d"].get("city", c["d"].get("district", "City")),
+        "state":      c["d"].get("state", ""),
+        "total_inv":  round(c["total_inv"], 1),
+        "budget":     c["budget_rows"],
+        "bar_chart":  make_bar_chart(
+            c["bau_totals"], c["ep_totals"],
+            c["ha_totals"],  c["targets"]),
+        "trajectory": make_trajectory_chart(
+            c["bau_totals"], c["ep_totals"],
+            c["ha_totals"],  c["targets"], years),
+    }
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
