@@ -1,1 +1,64 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'/>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
+  <title>ASCENT — {{ page_title }}</title>
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link href='https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap' rel='stylesheet'>
+  <link rel='stylesheet' href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel='stylesheet' href="{{ url_for('static', filename='css/results.css') }}">
+</head>
+<body class='results-body'>
+  <div class='bg-grid'></div>
+
+  <!-- Reuse same results-header -->
+  <header class='results-header'>
+    <div class='rh-left'>
+      <a href='/results' class='back-link'>← Results Home</a>
+      <span class='rh-title'>{{ page_title }}</span>
+    </div>
+    <div class='rh-city' id='rhCity'>—</div>
+    <div class='rh-actions'>
+      <!-- Page navigation buttons -->
+      {% set pages = [
+        ('emission-profile','Emission Profile'),
+        ('base-inventory','GHG Inventory'),
+        ('bau-scenario','BAU'),
+        ('bau-district','BAU Dashboard'),
+        ('target-setting','Targets'),
+        ('ep-scenario','E&amp;P'),
+        ('ha-scenario','High Ambition'),
+        ('emission-graph','Reduction Graph'),
+        ('scenario-compare','Comparison'),
+      ] %}
+      {% for slug, label in pages %}
+        <a href='/pages/{{ slug }}' class='action-btn {% if slug == page_slug %}active{% endif %}'>
+          {{ label }}
+        </a>
+      {% endfor %}
+    </div>
+  </header>
+
+  <div class='loading-overlay' id='loadingOverlay'>
+    <div class='loading-card'>
+      <h3 class='loading-title'>Loading {{ page_title }}</h3>
+      <p class='loading-sub'>Retrieving stored calculation...</p>
+    </div>
+  </div>
+
+  <div class='error-banner hidden' id='errorBanner'>
+    <span id='errorMsg'>No data found. Please complete the questionnaire first.</span>
+    <a href='/' class='error-back'>← Start Over</a>
+  </div>
+
+  <main class='dashboard hidden' id='dashboard'></main>
+
+  <script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>
+  <script>
+    const PAGE_SLUG = '{{ page_slug }}';
+  </script>
+  <script src="{{ url_for('static', filename='js/page_loader.js') }}"></script>
+</body>
+</html>
 
