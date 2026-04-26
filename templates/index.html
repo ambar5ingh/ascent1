@@ -291,33 +291,33 @@
       </div>
 
       <!-- ══════════════ SECTION 2: Transport ══════════════ -->
-     <!-- Add ABOVE the existing transport fuel table -->
-<div class='field-group full'>
-  <label class='field-label'>Transportation Data Approach</label>
-  <div class='subsection-tabs' style='max-width:380px'>
-    <button type='button' class='sub-tab active' data-trans='1' id='transOpt1'>
-      Fuel Sales Approach
-    </button>
-    <button type='button' class='sub-tab' data-trans='2' id='transOpt2'>
-      VKT Approach
-    </button>
-  </div>
-  <input type='hidden' name='trans_option' id='transOption' value='1'>
-</div>
+    
+      <div class='field-group full'>
+       <label class='field-label'>Transportation Data Approach</label>
+        <div class='subsection-tabs' style='max-width:380px'>
+          <button type='button' class='sub-tab active' data-trans='1' id='transOpt1'>
+            Fuel Sales Approach
+          </button>
+          <button type='button' class='sub-tab' data-trans='2' id='transOpt2'>
+          VKT Approach
+          </button>
+         </div>
+        <input type='hidden' name='trans_option' id='transOption' value='1'>
+     </div>
 
 <!-- FUEL SALES PANEL (Option 1) -->
-<div id='trans-fuel-panel'>
-  <p class='panel-hint'>Enter total annual fuel sold/consumed by transport mode and fuel type.</p>
-  <!-- On Road row -->
-  <div class='field-grid'>
+     <div id='trans-fuel-panel'>
+      <p class='panel-hint'>Enter total annual fuel sold/consumed by transport mode and fuel type.</p>
+     <!-- On Road row -->
+     <div class='field-grid'>
     <div class='field-group'><label class='field-label'>Petrol (kL)</label>
-      <input class='field-input' type='number' name='t_pet' placeholder='0'></div>
+     <input class='field-input' type='number' name='t_pet' placeholder='0'></div>
     <div class='field-group'><label class='field-label'>Diesel (kL)</label>
-      <input class='field-input' type='number' name='t_die' placeholder='0'></div>
+     <input class='field-input' type='number' name='t_die' placeholder='0'></div>
     <div class='field-group'><label class='field-label'>CNG (tonne)</label>
-      <input class='field-input' type='number' name='t_cng' placeholder='0'></div>
+     <input class='field-input' type='number' name='t_cng' placeholder='0'></div>
     <div class='field-group'><label class='field-label'>Auto LPG (tonne)</label>
-      <input class='field-input' type='number' name='t_alpg' placeholder='0'></div>
+     <input class='field-input' type='number' name='t_alpg' placeholder='0'></div>
     <div class='field-group'><label class='field-label'>Electricity / EV (MWh)</label>
       <input class='field-input' type='number' name='t_elec' placeholder='0'></div>
     <div class='field-group'><label class='field-label'>LNG (tonne)</label>
