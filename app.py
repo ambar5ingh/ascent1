@@ -17,52 +17,58 @@ app = Flask(__name__)
 GWP_CH4 = 29.8
 GWP_N2O = 273.0
 
-# ─── Emission Factors (from Emission Factor sheet) ────────────────────────────
-# Format: { unique_id: (CO2_tTJ_or_tMWh, CH4_fraction, N2O_fraction, total_CO2e) }
-# For electricity: t/MWh; for fuels: t/TJ
-# CH4 and N2O stored as emission_rate * GWP already = tCO2e per TJ
+# ─── Emission Factors (from EF_Sources sheet, AR6 GWP) ──────────────────
+# ALL fuel EFs in t/TJ (combustion), electricity in t/MWh
+# CH4 and N2O values in t/TJ (pre-multiplied by GWP already in some cols;
+#   we store raw t/TJ and multiply by GWP in calc functions)
 
 EF = {
-    # RESIDENTIAL
-    "Res_Electricity":      {"co2": 0.823,  "ch4": 0.0,    "n2o": 0.0,    "unit": "t/MWh"},
-    "Res_LPG":              {"co2": 63.1,   "ch4": 0.149,  "n2o": 0.0273, "unit": "t/TJ"},
-    "Res_Firewood":         {"co2": 112.0,  "ch4": 8.94,   "n2o": 1.092,  "unit": "t/TJ"},
-    "Res_Coal":             {"co2": 112.0,  "ch4": 5.96,   "n2o": 0.273,  "unit": "t/TJ"},
-    "Res_PNG":              {"co2": 56.1,   "ch4": 0.149,  "n2o": 0.0273, "unit": "t/TJ"},
-    "Res_Kerosene":         {"co2": 71.9,   "ch4": 0.298,  "n2o": 0.1638, "unit": "t/TJ"},
-    "Res_Diesel_Genset":    {"co2": 74.1,   "ch4": 0.298,  "n2o": 0.1638, "unit": "t/TJ"},
+    # RESIDENTIAL (from EF_Sources stationary combustion table)
+    'Res_Electricity':   {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Res_LPG':           {'co2': 63.1,   'ch4': 0.001,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Res_Firewood':      {'co2': 112.0,  'ch4': 0.3,     'n2o': 0.004,  'unit':'t/TJ'},
+    'Res_Coal':          {'co2': 94.6,   'ch4': 0.3,     'n2o': 0.001,  'unit':'t/TJ'},
+    'Res_PNG':           {'co2': 56.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Res_Kerosene':      {'co2': 71.9,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/TJ'},
+    'Res_Diesel_Genset': {'co2': 74.1,   'ch4': 0.003,   'n2o': 0.0006, 'unit':'t/TJ'},
     # COMMERCIAL
-    "Com_Electricity":      {"co2": 0.823,  "ch4": 0.0,    "n2o": 0.0,    "unit": "t/MWh"},
-    "Com_LPG":              {"co2": 63.1,   "ch4": 0.149,  "n2o": 0.0273, "unit": "t/TJ"},
-    "Com_PNG":              {"co2": 56.1,   "ch4": 1.490,  "n2o": 0.0273, "unit": "t/TJ"},
-    "Com_Firewood":         {"co2": 112.0,  "ch4": 8.94,   "n2o": 1.092,  "unit": "t/TJ"},
-    "Com_Kerosene":         {"co2": 71.9,   "ch4": 0.298,  "n2o": 0.1638, "unit": "t/TJ"},
+    'Com_Electricity':   {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Com_LPG':           {'co2': 63.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Com_PNG':           {'co2': 56.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Com_Firewood':      {'co2': 112.0,  'ch4': 0.3,     'n2o': 0.004,  'unit':'t/TJ'},
+    'Com_Kerosene':      {'co2': 71.9,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/TJ'},
     # INSTITUTIONAL
-    "Ins_Electricity":      {"co2": 0.823,  "ch4": 0.0,    "n2o": 0.0,    "unit": "t/MWh"},
-    "Ins_LPG":              {"co2": 63.1,   "ch4": 0.149,  "n2o": 0.0273, "unit": "t/TJ"},
-    # MANUFACTURING/INDUSTRIAL
-    "Ind_Electricity":      {"co2": 0.823,  "ch4": 0.0,    "n2o": 0.0,    "unit": "t/MWh"},
-    "Ind_LPG":              {"co2": 63.1,   "ch4": 0.0298, "n2o": 0.0273, "unit": "t/TJ"},
-    "Ind_Coal":             {"co2": 112.0,  "ch4": 5.96,   "n2o": 1.092,  "unit": "t/TJ"},
-    "Ind_Diesel":           {"co2": 74.1,   "ch4": 0.0894, "n2o": 0.1638, "unit": "t/TJ"},
-    "Ind_PNG":              {"co2": 56.1,   "ch4": 0.0298, "n2o": 0.0273, "unit": "t/TJ"},
-    "Ind_NatGas":           {"co2": 56.1,   "ch4": 0.0298, "n2o": 0.0273, "unit": "t/TJ"},
-    # ENERGY GENERATION
-    "EGen_Coal":            {"co2": 112.0,  "ch4": 5.96,   "n2o": 298.116,"unit": "t/TJ"},
-    "EGen_NatGas":          {"co2": 56.1,   "ch4": 0.0298, "n2o": 7.4529, "unit": "t/TJ"},
-    "EGen_Diesel":          {"co2": 74.1,   "ch4": 0.0894, "n2o": 44.717, "unit": "t/TJ"},
-    "EGen_Paraffin":        {"co2": 73.3,   "ch4": 0.0894, "n2o": 44.717, "unit": "t/TJ"},
-    "EGen_ResidualOil":     {"co2": 77.4,   "ch4": 0.0894, "n2o": 44.717, "unit": "t/TJ"},
-    # TRANSPORT (from Base Year GHG Inventory sheet)
-    "Trans_Petrol":         {"co2": 69.3,   "ch4": 0.0894, "n2o": 0.1638, "unit": "t/TJ", "conv_kl": 0.034839687},
-    "Trans_Diesel":         {"co2": 74.1,   "ch4": 1.8476, "n2o": 0.0546, "unit": "t/TJ", "conv_kl": 0.038492544},
-    "Trans_AutoLPG":        {"co2": 56.1,   "ch4": 8.94,   "n2o": 1.092,  "unit": "t/TJ", "conv_t":  0.0383791509},
-    "Trans_CNG":            {"co2": 56.1,   "ch4": 5.96,   "n2o": 0.273,  "unit": "t/TJ", "conv_t":  0.048},
-    "Trans_Electricity":    {"co2": 0.823,  "ch4": 0.0,    "n2o": 0.0,    "unit": "t/MWh"},
-    "Trans_AvGasoline":     {"co2": 71.5,   "ch4": 0.0894, "n2o": 0.1638, "unit": "t/TJ", "conv_kl": 0.0334461},
-    "Trans_JetKerosene":    {"co2": 71.5,   "ch4": 0.0894, "n2o": 0.1638, "unit": "t/TJ", "conv_kl": 0.37626862},
-    # SOLID WASTE — Landfill CH4 method (IPCC 2006 FOD)
-    # WASTEWATER — BOD/MCF method
+    'Ins_Electricity':   {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Ins_LPG':           {'co2': 63.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Ins_Diesel':        {'co2': 74.1,   'ch4': 0.003,   'n2o': 0.0006, 'unit':'t/TJ'},
+    # INDUSTRIAL/MANUFACTURING
+    'Ind_Electricity':   {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Ind_LPG':           {'co2': 63.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Ind_Coal':          {'co2': 94.6,   'ch4': 0.01,    'n2o': 0.0015, 'unit':'t/TJ'},
+    'Ind_Diesel':        {'co2': 74.1,   'ch4': 0.003,   'n2o': 0.0006, 'unit':'t/TJ'},
+    'Ind_PNG':           {'co2': 56.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'Ind_NatGas':        {'co2': 56.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    # ENERGY GENERATION (from EF_Sources Energy table)
+    'EGen_Coal':         {'co2': 94.6,   'ch4': 0.01,    'n2o': 0.0015, 'unit':'t/TJ'},
+    'EGen_NatGas':       {'co2': 56.1,   'ch4': 0.005,   'n2o': 0.0001, 'unit':'t/TJ'},
+    'EGen_Diesel':       {'co2': 74.1,   'ch4': 0.003,   'n2o': 0.0006, 'unit':'t/TJ'},
+    'EGen_Paraffin':     {'co2': 73.3,   'ch4': 0.1736,  'n2o': 0.053,  'unit':'t/TJ'},
+    'EGen_ResidualOil':  {'co2': 77.4,   'ch4': 0.003,   'n2o': 0.0006, 'unit':'t/TJ'},
+    # TRANSPORT (from EF_Sources Transport table — on-road EFs)
+    'Trans_Petrol':      {'co2': 69.3,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.034839687},
+    'Trans_Diesel':      {'co2': 74.1,   'ch4': 0.028,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.038492544},
+    'Trans_AutoLPG':     {'co2': 63.1,   'ch4': 0.0084,  'n2o': 0.0265, 'unit':'t/TJ', 'conv_t':0.0473},
+    'Trans_CNG':         {'co2': 56.1,   'ch4': 0.028,   'n2o': 0.0265, 'unit':'t/TJ', 'conv_t':0.048},
+    'Trans_LNG':         {'co2': 56.1,   'ch4': 0.028,   'n2o': 0.265,  'unit':'t/TJ', 'conv_t':0.048},
+    'Trans_Hydrogen':    {'co2': 0.0,    'ch4': 0.0,     'n2o': 0.0,    'unit':'t/TJ'},
+    'Trans_Lubricants':  {'co2': 73.3,   'ch4': 0.1736,  'n2o': 0.053,  'unit':'t/TJ', 'conv_kl':0.034},
+    'Trans_Electricity': {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Trans_AvGasoline':  {'co2': 70.0,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.0334461},
+    'Trans_JetKerosene': {'co2': 71.5,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.37626862},
+    'Trans_Railway_Die': {'co2': 74.1,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.038492544},
+    'Trans_Railway_Ele': {'co2': 0.82,   'ch4': 0.0,     'n2o': 0.0,    'unit':'t/MWh'},
+    'Trans_Water_Die':   {'co2': 74.1,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.038492544},
+    'Trans_Water_Pet':   {'co2': 69.3,   'ch4': 0.084,   'n2o': 0.159,  'unit':'t/TJ', 'conv_kl':0.034839687},
 }
 
 # ─── Fuel conversion factors (from ListsAndTables, Cost and Conversion Factor) ─
@@ -80,6 +86,9 @@ FUEL_CONV = {
     "NatGas":      {"t_to_tj":  0.048},
     "AvGasoline":  {"kl_to_tj": 0.0334461},
     "JetKerosene": {"kl_to_tj": 0.37626862},
+    'LNG':         {'t_to_tj':  0.048},       # same CV as CNG
+    'Lubricants':  {'kl_to_tj': 0.034},
+    'Hydrogen':    {'kg_to_tj': 0.12},        # 120 MJ/kg lower heating value
 }
 
 # ─── Energy demand (kWh/m²/yr) by climate zone (from Assumption sheet) ────────
@@ -944,73 +953,112 @@ def calc_buildings(d):
 # ─── TRANSPORT ────────────────────────────────────────────────────────────────
 def calc_transport(d):
     """
-    Mirrors: Base Year GHG Inventory → Transport Sector (Fuel Sales Approach)
-    Conversion: fuel (kl or tonne) → TJ → tCO2e
+    Mirrors D. Transportation sheet.
+    Option 1 = Fuel Sales Approach (user enters fuel volumes by mode)
+    Option 2 = VKT Approach (user enters vehicle counts & km/year)
+    Form field 'trans_option' = '1' or '2' (default '1')
     """
-    subs = {}
-
-    def road_emit():
-        # Petrol (kl) → TJ
-        pet_kl = float(d.get("t_pet", 0) or 0)
-        pet_tj = pet_kl * FUEL_CONV["Petrol"]["kl_to_tj"]
-        e_pet  = pet_tj * ef_total_transport("Trans_Petrol")
-
-        # Diesel (kl) → TJ
-        die_kl = float(d.get("t_die", 0) or 0)
-        die_tj = die_kl * FUEL_CONV["Diesel"]["kl_to_tj"]
-        e_die  = die_tj * ef_total_transport("Trans_Diesel")
-
-        # CNG (tonne) → TJ
-        cng_t  = float(d.get("t_cng", 0) or 0)
-        cng_tj = cng_t  * FUEL_CONV["CNG"]["t_to_tj"]
-        e_cng  = cng_tj * ef_total_transport("Trans_CNG")
-
-        # Auto LPG (tonne) → TJ
-        alpg_t = float(d.get("t_alpg", 0) or 0)
-        alpg_tj= alpg_t * FUEL_CONV["AutoLPG"]["t_to_tj"]
-        e_alpg = alpg_tj * ef_total_transport("Trans_AutoLPG")
-
-        # Electricity (MWh)
-        elec_mwh = float(d.get("t_elec", 0) or 0)
-        e_elec   = elec_mwh * EF["Trans_Electricity"]["co2"]
-
-        return e_pet + e_die + e_cng + e_alpg + e_elec
-
-    def rail_emit():
-        die_kl  = float(d.get("r_die", 0) or 0)
-        die_tj  = die_kl * FUEL_CONV["Diesel"]["kl_to_tj"]
-        e_die   = die_tj * ef_total_transport("Trans_Diesel")
-        elec_mwh= float(d.get("r_elec", 0) or 0)
-        e_elec  = elec_mwh * EF["Trans_Electricity"]["co2"]
-        return e_die + e_elec
-
-    def water_emit():
-        pet_kl = float(d.get("w_pet", 0) or 0)
-        die_kl = float(d.get("w_die", 0) or 0)
-        e = (pet_kl * FUEL_CONV["Petrol"]["kl_to_tj"] * ef_total_transport("Trans_Petrol") +
-             die_kl * FUEL_CONV["Diesel"]["kl_to_tj"] * ef_total_transport("Trans_Diesel"))
-        return e
-
-    def aviation_emit():
-        av_gas_kl= float(d.get("av_gas", 0) or 0)
-        av_jet_kl= float(d.get("av_jet", 0) or 0)
-        e = (av_gas_kl * FUEL_CONV["AvGasoline"]["kl_to_tj"] * ef_total_transport("Trans_AvGasoline") +
-             av_jet_kl * FUEL_CONV["JetKerosene"]["kl_to_tj"] * ef_total_transport("Trans_JetKerosene"))
-        return e
-
-    subs["On Road"]              = road_emit()
-    subs["Railway"]              = rail_emit()
-    subs["Water Borne Navigation"]= water_emit()
-    subs["Aviation"]             = aviation_emit()
-    return subs
+    opt = str(d.get('trans_option', '1')).strip()
+    if opt == '2':
+        return _calc_transport_vkt(d)
+    return _calc_transport_fuel_sales(d)
 
 
-def ef_total_transport(key):
-    e = EF[key]
-    if e["unit"] == "t/MWh":
-        return e["co2"]
-    return e["co2"] + e["ch4"] + e["n2o"]
+def _calc_transport_fuel_sales(d):
+    """Option 1: Fuel Sales — matches sheet rows B4:B8, on-road table"""
 
+    def emit(kl=0, t=0, mwh=0, kg=0, ef_key='Trans_Petrol'):
+        e = EF[ef_key]
+        if e['unit'] == 't/MWh': return mwh * e['co2']
+        tj = 0.0
+        if kl > 0: tj = kl * EF[ef_key].get('conv_kl', 0)
+        if t  > 0: tj = t  * FUEL_CONV.get(ef_key.split('_')[-1], {}).get('t_to_tj', 0)
+        if kg > 0: tj = kg * FUEL_CONV.get('Hydrogen', {}).get('kg_to_tj', 0.12)
+        total_ef = e['co2'] + e['ch4'] * GWP_CH4 / 1000 + e['n2o'] * GWP_N2O / 1000
+        return tj * total_ef
+
+def _calc_transport_vkt(d):
+    """
+    Option 2: Vehicular Kilometre Travel (VKT)
+    Mirrors D. Transportation VKT sub-table (vehicle count × km/yr × EF_km)
+    EF_km (tCO2e/km) = (fuel_consumption_L_per_100km / 100) * (fuel_density kg/L)
+                       * (TJ_per_tonne) * (CO2+CH4+N2O per TJ)
+
+    Form fields expected:
+      vkt_motorcycle_count, vkt_motorcycle_fuel, vkt_motorcycle_km
+      vkt_car_count, vkt_car_fuel, vkt_car_km
+      ... (one set per vehicle type)
+    """
+    # VKT emission factors (tCO2e per vehicle-km) — IPCC defaults
+    VKT_EF = {
+        'Motorcycle_Petrol':   0.000082,
+        'Car_Petrol':          0.000192,
+        'Car_Diesel':          0.000171,
+        'Car_CNG':             0.000135,
+        'Car_EV':              0.000097,  # grid EF applied
+        'Bus_Diesel':          0.000890,
+        'Bus_CNG':             0.000780,
+        'HDTruck_Diesel':      0.001250,
+        'LDTruck_Diesel':      0.000210,
+    }
+
+    on_road = 0.0
+    veh_types = ['motorcycle', 'car', 'taxi', 'bus', 'ldtruck', 'mdtruck', 'hdtruck', 'metro']
+    for vt in veh_types:
+        count = float(d.get(f'vkt_{vt}_count', 0) or 0)
+        km    = float(d.get(f'vkt_{vt}_km',    0) or 0)
+        fuel  = d.get(f'vkt_{vt}_fuel', 'Petrol')
+        key   = f'{vt.capitalize()}_{fuel}'
+        ef    = VKT_EF.get(key, VKT_EF.get(f'Car_{fuel}', 0.000192))
+        on_road += count * km * ef
+
+    # Railway (electric only in VKT mode)
+    railway = float(d.get('r_elec', 0) or 0) * EF['Trans_Railway_Ele']['co2']
+
+    return {
+        'On Road':               on_road,
+        'Railway':               railway,
+        'Water Borne Navigation': 0.0,
+        'Aviation':              0.0,
+    }
+
+    # ── ON ROAD ──────────────────────────────────────────────────────
+    on_road = (
+        emit(kl=float(d.get('t_pet',  0) or 0), ef_key='Trans_Petrol')     +
+        emit(kl=float(d.get('t_die',  0) or 0), ef_key='Trans_Diesel')     +
+        emit(t= float(d.get('t_cng',  0) or 0), ef_key='Trans_CNG')        +
+        emit(t= float(d.get('t_alpg', 0) or 0), ef_key='Trans_AutoLPG')    +
+        emit(kl=float(d.get('t_mwh',  0) or 0), ef_key='Trans_Electricity')+  # EV (kl treated as MWh)
+        emit(t= float(d.get('t_lng',  0) or 0), ef_key='Trans_LNG')        +
+        emit(kg=float(d.get('t_h2',   0) or 0), ef_key='Trans_Hydrogen')   +
+        emit(kl=float(d.get('t_lub',  0) or 0), ef_key='Trans_Lubricants')
+    )
+    on_road += float(d.get('t_elec', 0) or 0) * EF['Trans_Electricity']['co2']  # MWh
+
+    # ── RAILWAY ──────────────────────────────────────────────────────
+    railway = (
+        emit(kl=float(d.get('r_die',  0) or 0), ef_key='Trans_Railway_Die') +
+        float(d.get('r_elec', 0) or 0) * EF['Trans_Railway_Ele']['co2']
+    )
+
+    # ── WATERBORNE NAVIGATION ────────────────────────────────────────
+    water = (
+        emit(kl=float(d.get('w_die', 0) or 0), ef_key='Trans_Water_Die') +
+        emit(kl=float(d.get('w_pet', 0) or 0), ef_key='Trans_Water_Pet')
+    )
+
+    # ── AVIATION ─────────────────────────────────────────────────────
+    aviation = (
+        emit(kl=float(d.get('av_gas', 0) or 0), ef_key='Trans_AvGasoline') +
+        emit(kl=float(d.get('av_jet', 0) or 0), ef_key='Trans_JetKerosene')
+    )
+
+    return {
+        'On Road':               on_road,
+        'Railway':               railway,
+        'Water Borne Navigation':water,
+        'Aviation':              aviation,
+    }
 
 # ─── SOLID WASTE ──────────────────────────────────────────────────────────────
 def calc_solid_waste(d):
@@ -1410,6 +1458,109 @@ def calc_mitigation_budget(base_by_sector, bau_by_year, ha_by_year, d):
 
     return budget_rows, total_inv
 
+# ─── Page Data Helpers ───────────────────────────────────────────────────
+
+def _page_emission_profile(base_by_sector, base_total, d):
+    """Mirrors Base-Emission Profile_District sheet."""
+    population = max(float(d.get('population', 1) or 1), 1)
+    area = max(float(d.get('area_sqkm', 1) or 1), 1)
+    rows = []
+    for sector, subs in base_by_sector.items():
+        for sub, val in subs.items():
+            if val != 0:
+                rows.append({
+                    'sector': sector, 'subsector': sub,
+                    'emissions_tco2e': round(val),
+                    'share_pct': round(val/base_total*100, 2) if base_total > 0 else 0,
+                    'per_capita': round(val/population, 4),
+                    'per_sqkm': round(val/area, 2),
+                })
+    rows.sort(key=lambda x: -x['emissions_tco2e'])
+    return {
+        'profile_rows': rows,
+        'total': round(base_total),
+        'per_capita': round(base_total/population, 2),
+        'per_sqkm': round(base_total/area, 2),
+        'chart': make_pie_chart(base_by_sector),
+    }
+
+
+def _page_base_inventory(base_by_sector, base_total, d):
+    """Mirrors Base Year GHG Inventory sheet — full subsector breakdown."""
+    rows = []
+    for sector, subs in base_by_sector.items():
+        sector_total = sum(subs.values())
+        for sub, val in subs.items():
+            rows.append({
+                'sector': sector, 'subsector': sub,
+                'co2_eq': round(val), 'sector_share': round(val/sector_total*100,1) if sector_total else 0,
+                'total_share': round(val/base_total*100,1) if base_total else 0,
+            })
+        rows.append({'sector': sector, 'subsector': 'SUBTOTAL', 'co2_eq': round(sector_total),
+                     'sector_share': 100.0, 'total_share': round(sector_total/base_total*100,1) if base_total else 0})
+    return {'inventory_rows': rows, 'total': round(base_total),
+            'chart': make_subsector_bar(base_by_sector)}
+
+
+def _page_bau(bau_totals, bau_by_year, years, d):
+    """Mirrors BAU Scenario sheet."""
+    rows = []
+    for yr in years:
+        row = {'year': yr, 'total_mt': round(bau_totals[yr]/1e6, 3)}
+        for sector, subs in bau_by_year[yr].items():
+            row[sector] = round(sum(subs.values())/1e6, 3)
+        rows.append(row)
+    return {'bau_rows': rows, 'years': years}
+
+
+def _page_bau_dashboard(bau_totals, bau_by_year, years, d):
+    """Mirrors Dashboard-BAU-District sheet."""
+    population = max(float(d.get('population', 1) or 1), 1)
+    base_year = int(d.get('base_year', 2025))
+    base_total = bau_totals.get(base_year, 0)
+    return {
+        'bau_totals': {str(y): round(v/1e6, 3) for y, v in bau_totals.items()},
+        'per_capita_base': round(base_total/population, 2),
+        'trajectory_chart': make_trajectory_chart(
+            bau_totals, bau_totals, bau_totals, bau_totals, years),
+        'pie_chart': make_pie_chart(bau_by_year.get(base_year, {})),
+    }
+
+def _page_targets(bau_totals, targets, milestones, d):
+    """Mirrors Target Setting sheet."""
+    return {'milestones': milestones, 'bau': {str(y): round(v/1e6,3) for y,v in bau_totals.items()},
+            'targets': {str(y): round(v/1e6,3) for y,v in targets.items()}}
+
+
+def _page_ep(bau_totals, ep_totals, years, d):
+    """Mirrors E&P Scenario sheet."""
+    return {'ep': {str(y): round(ep_totals.get(y,0)/1e6,3) for y in years},
+            'bau': {str(y): round(bau_totals.get(y,0)/1e6,3) for y in years}}
+
+
+def _page_ha(bau_totals, ha_totals, years, d):
+    """Mirrors High Ambition Scenario sheet."""
+    return {'ha': {str(y): round(ha_totals.get(y,0)/1e6,3) for y in years},
+            'bau': {str(y): round(bau_totals.get(y,0)/1e6,3) for y in years}}
+
+
+def _page_emission_graph(bau_totals, ep_totals, ha_totals, targets, years):
+    """Mirrors Emission Reduction-Graph sheet."""
+    chart = make_trajectory_chart(bau_totals, ep_totals, ha_totals, targets, years)
+    return {'chart': chart, 'years': years,
+            'bau': {str(y): round(bau_totals.get(y,0)/1e6,3) for y in years},
+            'ep':  {str(y): round(ep_totals.get(y,0)/1e6,3)  for y in years},
+            'ha':  {str(y): round(ha_totals.get(y,0)/1e6,3)  for y in years},
+            'target': {str(y): round(targets.get(y,0)/1e6,3) for y in years}}
+
+
+def _page_scenario_compare(bau_totals, ep_totals, ha_totals, targets, budget_rows, years):
+    """Mirrors Dashboard-Scenario Comparison sheet."""
+    return {
+        'bar_chart': make_bar_chart(bau_totals, ep_totals, ha_totals, targets),
+        'budget': budget_rows,
+        'trajectory': make_trajectory_chart(bau_totals, ep_totals, ha_totals, targets, years),
+    }
 
 # ─── MILESTONE TABLE (Target Setting) ─────────────────────────────────────────
 def calc_milestones(bau_totals, ep_totals, ha_totals, targets, d):
@@ -1630,6 +1781,80 @@ def results():
 @app.route("/api/cities")
 def api_cities():
     return jsonify(INDIA_CITIES)
+
+# ─── Sub-pages (mirrors Excel dashboard sheets) ──────────────────────
+
+PAGE_ROUTES = [
+    ('emission-profile',  'Base-Emission Profile District'),
+    ('base-inventory',    'Base Year GHG Inventory'),
+    ('bau-scenario',      'BAU Scenario'),
+    ('bau-district',      'Dashboard BAU District'),
+    ('target-setting',    'Target Setting'),
+    ('ep-scenario',       'E&P Scenario'),
+    ('ha-scenario',       'High Ambition Scenario'),
+    ('emission-graph',    'Emission Reduction Graph'),
+    ('scenario-compare',  'Dashboard Scenario Comparison'),
+]
+
+for _slug, _title in PAGE_ROUTES:
+    def _make_route(slug=_slug, title=_title):
+        @app.route(f'/pages/{slug}', endpoint=f'page_{slug.replace("-","_")}')
+        def _page():
+            return render_template('pages/page_base.html',
+                                   page_slug=slug, page_title=title)
+        return _page
+    _make_route()
+
+
+@app.route('/api/page-data/<page_slug>', methods=['POST'])
+def api_page_data(page_slug):
+    """Returns pre-computed data for each sub-page via POST with payload."""
+    d = request.get_json(force=True)
+
+    # Run full calculation
+    bldg  = calc_buildings(d)
+    trans = calc_transport(d)
+    sw    = calc_solid_waste(d)
+    ww    = calc_wastewater(d)
+    afolu = calc_afolu(d)
+    ippu  = calc_ippu(d)
+    base_by_sector = {
+        'Energy Sector': bldg, 'Transport': trans, 'Waste': sw,
+        'Wastewater': ww, 'AFOLU': afolu, 'IPPU': ippu,
+    }
+    base_total = sum(sum(s.values()) for s in base_by_sector.values())
+    base_year   = int(d.get('base_year', 2025))
+    interim1    = int(d.get('interim1',  2030))
+    interim2    = int(d.get('interim2',  2040))
+    target_year = int(d.get('target_year', 2050))
+    years = sorted({base_year, interim1, interim2, target_year})
+    bau_by_year = {yr: calc_bau(base_by_sector, d, yr) for yr in years}
+    bau_totals  = {yr: sum(sum(s.values()) for s in bau_by_year[yr].values()) for yr in years}
+    targets     = calc_targets(bau_totals, d)
+    ep_totals, ha_totals = calc_scenarios(base_by_sector, bau_by_year, d)
+    budget_rows, total_inv = calc_mitigation_budget(base_by_sector, bau_by_year, ha_totals, d)
+    milestones  = calc_milestones(bau_totals, ep_totals, ha_totals, targets, d)
+
+    # Build page-specific response
+    if page_slug == 'emission-profile':
+        return jsonify(_page_emission_profile(base_by_sector, base_total, d))
+    elif page_slug == 'base-inventory':
+        return jsonify(_page_base_inventory(base_by_sector, base_total, d))
+    elif page_slug == 'bau-scenario':
+        return jsonify(_page_bau(bau_totals, bau_by_year, years, d))
+    elif page_slug == 'bau-district':
+        return jsonify(_page_bau_dashboard(bau_totals, bau_by_year, years, d))
+    elif page_slug == 'target-setting':
+        return jsonify(_page_targets(bau_totals, targets, milestones, d))
+    elif page_slug == 'ep-scenario':
+        return jsonify(_page_ep(bau_totals, ep_totals, years, d))
+    elif page_slug == 'ha-scenario':
+        return jsonify(_page_ha(bau_totals, ha_totals, years, d))
+    elif page_slug == 'emission-graph':
+        return jsonify(_page_emission_graph(bau_totals, ep_totals, ha_totals, targets, years))
+    elif page_slug == 'scenario-compare':
+        return jsonify(_page_scenario_compare(bau_totals, ep_totals, ha_totals, targets, budget_rows, years))
+    return jsonify({'error': 'unknown page'}), 404
 
 
 @app.route("/api/calculate", methods=["POST"])
