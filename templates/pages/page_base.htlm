@@ -140,5 +140,146 @@
   const PAGE_SLUG = "{{ page_slug }}";
 </script>
 <script src="{{ url_for('static', filename='js/page_loader.js') }}"></script>
+<!-- ── Fallback inline loader: runs if page_loader.js is missing or incomplete ── -->
+<script>
+(function () {
+  // Only run if page_loader.js didn't already define initPageLoader
+  if (typeof window._ascentPageLoaded !== "undefined") return;
+  window._ascentPageLoaded = true;
+
+  const overlay  = document.getElementById("loadingOverlay");
+  const errBanner = document.getElementById("errorBanner");
+  const errMsg   = document.getElementById("errorMsg");
+  const dashboard = document.getElementById("dashboard");
+
+  function showError(msg) {
+    if (overlay)   overlay.classList.add("hidden");
+    if (errBanner) errBanner.classList.remove("hidden");
+    if (errMsg)    errMsg.textContent = msg;
+  }
+
+  async function loadPage() {
+    // Read saved inputs from localStorage (written by results page)
+    let inputs = {};
+    try {
+      const raw = localStorage.getItem("ascent_inputs");
+      if (raw) inputs = JSON.parse(raw);
+    } catch (e) {}
+
+    let resp;
+    try {
+      resp = await fetch(`/api/page-data/${PAGE_SLUG}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inputs)
+      });
+    } catch (e) {
+      showError("Network error. Please check your connection and try again.");
+      return;
+    }
+
+    if (!resp.ok) {
+      let errText = "Calculation failed.";
+      try { const j = await resp.json(); errText = j.error || errText; } catch (e) {}
+      showError(errText);
+      return;
+    }
+
+    let data;
+    try { data = await resp.json(); } catch (e) {
+      showError("Invalid response from server.");
+      return;
+    }
+
+    // Update city name in header if available
+    const cityEl = document.getElementById("rhCity");
+    if (cityEl && data.city) cityEl.textContent = data.city + (data.state ? ", " + data.state : "");
+
+    // Hand off to page_loader.js renderPage() if defined, otherwise render generic JSON view
+    if (typeof renderPage === "function") {
+      renderPage(data);
+    } else {
+      renderGeneric(data);
+    }
+
+    if (overlay)   overlay.classList.add("hidden");
+    if (dashboard) dashboard.classList.remove("hidden");
+  }
+
+  // Generic fallback renderer — renders all data as readable sections
+  function renderGeneric(data) {
+    if (!dashboard) return;
+    dashboard.innerHTML = "";
+
+    // City banner
+    const city  = data.city  || "";
+    const state = data.state || "";
+    const year  = data.base_year || "";
+    dashboard.innerHTML += `
+      <div class="city-banner">
+        <div class="cb-info">
+          <h1 class="cb-city">${city}</h1>
+          <p class="cb-meta">${state}${year ? " · Base Year " + year : ""}</p>
+        </div>
+      </div>`;
+
+    // Render Plotly charts (any key whose value has "data" + "layout" arrays)
+    Object.entries(data).forEach(([key, val]) => {
+      if (val && typeof val === "object" && Array.isArray(val.data) && val.layout) {
+        const wrap = document.createElement("div");
+        wrap.className = "chart-card full-width";
+        wrap.style.marginBottom = "16px";
+        wrap.innerHTML = `<div class="chart-header"><h3 class="chart-title">${humanKey(key)}</h3></div>
+                          <div id="chart_${key}" class="chart-area"></div>`;
+        dashboard.appendChild(wrap);
+        Plotly.newPlot(`chart_${key}`, val.data, val.layout, {responsive: true});
+      }
+    });
+
+    // Render array-of-object tables
+    Object.entries(data).forEach(([key, val]) => {
+      if (!Array.isArray(val) || val.length === 0 || typeof val[0] !== "object") return;
+      const cols = Object.keys(val[0]);
+      let html = `<section class="data-section" style="margin-bottom:16px">
+        <div class="ds-header"><h3 class="ds-title">${humanKey(key)}</h3></div>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr>${cols.map(c => `<th>${humanKey(c)}</th>`).join("")}</tr></thead>
+          <tbody>`;
+      val.forEach(row => {
+        const isTotal = row.is_subtotal || row.is_total;
+        html += `<tr class="${isTotal ? "subtotal-row" : ""}">
+          ${cols.map(c => `<td>${row[c] ?? ""}</td>`).join("")}</tr>`;
+      });
+      html += `</tbody></table></div></section>`;
+      dashboard.innerHTML += html;
+    });
+
+    // Render simple key-value dict sections (non-chart, non-array, non-primitive top-level objects)
+    const kvSections = Object.entries(data).filter(([k, v]) =>
+      v !== null && typeof v === "object" && !Array.isArray(v) &&
+      !(v.data && v.layout) &&
+      Object.values(v).every(x => typeof x !== "object" || x === null));
+    if (kvSections.length) {
+      let html = `<section class="data-section" style="margin-bottom:16px">
+        <div class="ds-header"><h3 class="ds-title">Summary Values</h3></div>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>`;
+      kvSections.forEach(([key, obj]) => {
+        Object.entries(obj).forEach(([k, v]) => {
+          html += `<tr><td>${humanKey(key)} — ${humanKey(k)}</td><td>${v}</td></tr>`;
+        });
+      });
+      html += `</tbody></table></div></section>`;
+      dashboard.innerHTML += html;
+    }
+  }
+
+  function humanKey(k) {
+    return String(k).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  document.addEventListener("DOMContentLoaded", loadPage);
+})();
+</script>
 </body>
 </html>
