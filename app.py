@@ -3,7 +3,7 @@ ASCENT — WRI India GHG Emissions & Scenario Planning Tool
 IPCC 2019 / GPC Framework | AR6 GWP values
 """
 
-from flask import Flask, jsonify, request, render_template, send_file
+from flask import Flask, jsonify, request, render_template, send_file, session
 import io, json, math, os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -12,6 +12,7 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "ascent-wri-secret-2024")
 
 # ─── AR6 GWP (from GWP sheet: CH4=29.8, N2O=273) ──────────────────────────────
 GWP_CH4 = 29.8
@@ -1682,6 +1683,7 @@ def api_cities():
 @app.route("/api/calculate", methods=["POST"])
 def api_calculate():
     d = request.get_json(force=True)
+    session["last_inputs"] = d
 
     # ── Step 1: Base Year Emissions ──────────────────────────────────────────
     bldg   = calc_buildings(d)
@@ -2072,9 +2074,9 @@ def _run_full_calc(d):
 def api_page_data(page_slug):
     """Single endpoint that returns JSON for whichever sub-page requests it."""
     try:
-        d = request.get_json(force=True)
+        d = request.get_json(force=True) or session.get("last_inputs")
         if not d:
-            return jsonify({"error": "No payload received"}), 400
+            return jsonify({"error": "No input data found. Please go back to the Results page and ensure a calculation has been run first."}), 400
  
         c = _run_full_calc(d)   # c = calc results dict
  
