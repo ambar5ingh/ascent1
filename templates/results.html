@@ -1,22 +1,3 @@
-<div class='page-nav-strip' style='
-  display:flex; flex-wrap:wrap; gap:8px; padding:0 0 24px; border-bottom:1px solid #e2e8f0; margin-bottom:24px;'>
-
-  <span style='font-size:0.75rem;font-weight:700;color:#1a2744;align-self:center;margin-right:8px;'>
-    VIEW DETAILS:
-  </span>
-
-  <a href='/pages/emission-profile'  class='action-btn'>Emission Profile</a>
-  <a href='/pages/base-inventory'    class='action-btn'>GHG Inventory</a>
-  <a href='/pages/bau-scenario'      class='action-btn'>BAU Scenario</a>
-  <a href='/pages/bau-district'      class='action-btn'>BAU Dashboard</a>
-  <a href='/pages/target-setting'    class='action-btn'>Target Setting</a>
-  <a href='/pages/ep-scenario'       class='action-btn'>E&amp;P Scenario</a>
-  <a href='/pages/ha-scenario'       class='action-btn'>High Ambition</a>
-  <a href='/pages/emission-graph'    class='action-btn'>Reduction Graph</a>
-  <a href='/pages/scenario-compare'  class='action-btn'>Scenario Comparison</a>
-
-</div>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,7 +11,7 @@
 </head>
 <body class="results-body">
   <div class="bg-grid"></div>
-
+ 
   <!-- Results Header -->
   <header class="results-header">
     <div class="rh-left">
@@ -58,7 +39,7 @@
       </button>
     </div>
   </header>
-
+ 
   <!-- Loading state -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-card">
@@ -78,17 +59,31 @@
       </div>
     </div>
   </div>
-
+ 
   <!-- Error state -->
   <div class="error-banner hidden" id="errorBanner">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     <span id="errorMsg">Calculation failed. Please go back and check your inputs.</span>
     <a href="/" class="error-back">← Back</a>
   </div>
-
+ 
   <!-- Dashboard -->
   <main class="dashboard hidden" id="dashboard">
-
+ 
+    <!-- ── Sub-page navigation strip ── -->
+    <div class="page-nav-strip" style="display:flex;flex-wrap:wrap;gap:8px;padding:0 0 24px;border-bottom:1px solid #e2e8f0;margin-bottom:24px;">
+      <span style="font-size:0.75rem;font-weight:700;color:#1a2744;align-self:center;margin-right:8px;">VIEW DETAILS:</span>
+      <a href="/pages/emission-profile"  class="action-btn" style="text-decoration:none">Emission Profile</a>
+      <a href="/pages/base-inventory"    class="action-btn" style="text-decoration:none">GHG Inventory</a>
+      <a href="/pages/bau-scenario"      class="action-btn" style="text-decoration:none">BAU Scenario</a>
+      <a href="/pages/bau-district"      class="action-btn" style="text-decoration:none">BAU Dashboard</a>
+      <a href="/pages/target-setting"    class="action-btn" style="text-decoration:none">Target Setting</a>
+      <a href="/pages/ep-scenario"       class="action-btn" style="text-decoration:none">E&amp;P Scenario</a>
+      <a href="/pages/ha-scenario"       class="action-btn" style="text-decoration:none">High Ambition</a>
+      <a href="/pages/emission-graph"    class="action-btn" style="text-decoration:none">Reduction Graph</a>
+      <a href="/pages/scenario-compare"  class="action-btn" style="text-decoration:none">Scenario Comparison</a>
+    </div>
+ 
     <!-- City Banner -->
     <div class="city-banner">
       <div class="cb-info">
@@ -97,7 +92,7 @@
       </div>
       <div class="cb-tags" id="cbTags"></div>
     </div>
-
+ 
     <!-- KPI Strip -->
     <section class="kpi-strip">
       <div class="kpi-card" data-color="navy">
@@ -131,10 +126,10 @@
         <div class="kpi-unit">₹ Crore</div>
       </div>
     </section>
-
+ 
     <!-- Charts Grid -->
     <section class="charts-grid">
-
+ 
       <!-- Trajectory Chart - full width -->
       <div class="chart-card full-width">
         <div class="chart-header">
@@ -143,7 +138,7 @@
         </div>
         <div id="chartTrajectory" class="chart-area"></div>
       </div>
-
+ 
       <!-- Pie + Bar -->
       <div class="chart-card">
         <div class="chart-header">
@@ -151,14 +146,14 @@
         </div>
         <div id="chartPie" class="chart-area chart-sm"></div>
       </div>
-
+ 
       <div class="chart-card">
         <div class="chart-header">
           <h3 class="chart-title">Scenario Comparison by Year</h3>
         </div>
         <div id="chartBar" class="chart-area chart-sm"></div>
       </div>
-
+ 
       <!-- Budget + Subsector -->
       <div class="chart-card">
         <div class="chart-header">
@@ -166,16 +161,16 @@
         </div>
         <div id="chartBudget" class="chart-area chart-sm"></div>
       </div>
-
+ 
       <div class="chart-card">
         <div class="chart-header">
           <h3 class="chart-title">Sub-sector Emissions</h3>
         </div>
         <div id="chartSubsector" class="chart-area chart-sm"></div>
       </div>
-
+ 
     </section>
-
+ 
     <!-- Milestone Table -->
     <section class="data-section">
       <div class="ds-header">
@@ -200,7 +195,7 @@
         </table>
       </div>
     </section>
-
+ 
     <!-- Sector Detail -->
     <section class="data-section">
       <div class="ds-header">
@@ -216,7 +211,7 @@
         </table>
       </div>
     </section>
-
+ 
     <!-- Mitigation Budget -->
     <section class="data-section">
       <div class="ds-header">
@@ -238,13 +233,13 @@
         </table>
       </div>
     </section>
-
+ 
   </main>
-
+ 
   <footer class="site-footer">
     <p>ASCENT v2.0 · WRI India · IPCC 2019 GPC Framework · AR6 GWP (CH₄=29.8, N₂O=273)</p>
   </footer>
-
+ 
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <script src="{{ url_for('static', filename='js/results.js') }}"></script>
 </body>
