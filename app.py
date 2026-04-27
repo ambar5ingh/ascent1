@@ -962,11 +962,11 @@ def calc_transport(d):
     if opt == '2':
         return _calc_transport_vkt(d)
     return _calc_transport_fuel_sales(d)
-
-
+ 
+ 
 def _calc_transport_fuel_sales(d):
     """Option 1: Fuel Sales — matches sheet rows B4:B8, on-road table"""
-
+ 
     def emit(kl=0, t=0, mwh=0, kg=0, ef_key='Trans_Petrol'):
         e = EF[ef_key]
         if e['unit'] == 't/MWh': return mwh * e['co2']
@@ -976,14 +976,51 @@ def _calc_transport_fuel_sales(d):
         if kg > 0: tj = kg * FUEL_CONV.get('Hydrogen', {}).get('kg_to_tj', 0.12)
         total_ef = e['co2'] + e['ch4'] * GWP_CH4 / 1000 + e['n2o'] * GWP_N2O / 1000
         return tj * total_ef
-
+ 
+    # ── ON ROAD ──────────────────────────────────────────────────────
+    on_road = (
+        emit(kl=float(d.get('t_pet',  0) or 0), ef_key='Trans_Petrol')     +
+        emit(kl=float(d.get('t_die',  0) or 0), ef_key='Trans_Diesel')     +
+        emit(t= float(d.get('t_cng',  0) or 0), ef_key='Trans_CNG')        +
+        emit(t= float(d.get('t_alpg', 0) or 0), ef_key='Trans_AutoLPG')    +
+        emit(t= float(d.get('t_lng',  0) or 0), ef_key='Trans_LNG')        +
+        emit(kg=float(d.get('t_h2',   0) or 0), ef_key='Trans_Hydrogen')   +
+        emit(kl=float(d.get('t_lub',  0) or 0), ef_key='Trans_Lubricants')
+    )
+    on_road += float(d.get('t_elec', 0) or 0) * EF['Trans_Electricity']['co2']  # EV MWh
+ 
+    # ── RAILWAY ──────────────────────────────────────────────────────
+    railway = (
+        emit(kl=float(d.get('r_die',  0) or 0), ef_key='Trans_Railway_Die') +
+        float(d.get('r_elec', 0) or 0) * EF['Trans_Railway_Ele']['co2']
+    )
+ 
+    # ── WATERBORNE NAVIGATION ────────────────────────────────────────
+    water = (
+        emit(kl=float(d.get('w_die', 0) or 0), ef_key='Trans_Water_Die') +
+        emit(kl=float(d.get('w_pet', 0) or 0), ef_key='Trans_Water_Pet')
+    )
+ 
+    # ── AVIATION ─────────────────────────────────────────────────────
+    aviation = (
+        emit(kl=float(d.get('av_gas', 0) or 0), ef_key='Trans_AvGasoline') +
+        emit(kl=float(d.get('av_jet', 0) or 0), ef_key='Trans_JetKerosene')
+    )
+ 
+    return {
+        'On Road':                on_road,
+        'Railway':                railway,
+        'Water Borne Navigation': water,
+        'Aviation':               aviation,
+    }
+ 
 def _calc_transport_vkt(d):
     """
     Option 2: Vehicular Kilometre Travel (VKT)
     Mirrors D. Transportation VKT sub-table (vehicle count × km/yr × EF_km)
     EF_km (tCO2e/km) = (fuel_consumption_L_per_100km / 100) * (fuel_density kg/L)
                        * (TJ_per_tonne) * (CO2+CH4+N2O per TJ)
-
+ 
     Form fields expected:
       vkt_motorcycle_count, vkt_motorcycle_fuel, vkt_motorcycle_km
       vkt_car_count, vkt_car_fuel, vkt_car_km
@@ -1001,7 +1038,7 @@ def _calc_transport_vkt(d):
         'HDTruck_Diesel':      0.001250,
         'LDTruck_Diesel':      0.000210,
     }
-
+ 
     on_road = 0.0
     veh_types = ['motorcycle', 'car', 'taxi', 'bus', 'ldtruck', 'mdtruck', 'hdtruck', 'metro']
     for vt in veh_types:
@@ -1011,55 +1048,17 @@ def _calc_transport_vkt(d):
         key   = f'{vt.capitalize()}_{fuel}'
         ef    = VKT_EF.get(key, VKT_EF.get(f'Car_{fuel}', 0.000192))
         on_road += count * km * ef
-
+ 
     # Railway (electric only in VKT mode)
     railway = float(d.get('r_elec', 0) or 0) * EF['Trans_Railway_Ele']['co2']
-
+ 
     return {
         'On Road':               on_road,
         'Railway':               railway,
         'Water Borne Navigation': 0.0,
         'Aviation':              0.0,
     }
-
-    # ── ON ROAD ──────────────────────────────────────────────────────
-    on_road = (
-        emit(kl=float(d.get('t_pet',  0) or 0), ef_key='Trans_Petrol')     +
-        emit(kl=float(d.get('t_die',  0) or 0), ef_key='Trans_Diesel')     +
-        emit(t= float(d.get('t_cng',  0) or 0), ef_key='Trans_CNG')        +
-        emit(t= float(d.get('t_alpg', 0) or 0), ef_key='Trans_AutoLPG')    +
-        emit(kl=float(d.get('t_mwh',  0) or 0), ef_key='Trans_Electricity')+  # EV (kl treated as MWh)
-        emit(t= float(d.get('t_lng',  0) or 0), ef_key='Trans_LNG')        +
-        emit(kg=float(d.get('t_h2',   0) or 0), ef_key='Trans_Hydrogen')   +
-        emit(kl=float(d.get('t_lub',  0) or 0), ef_key='Trans_Lubricants')
-    )
-    on_road += float(d.get('t_elec', 0) or 0) * EF['Trans_Electricity']['co2']  # MWh
-
-    # ── RAILWAY ──────────────────────────────────────────────────────
-    railway = (
-        emit(kl=float(d.get('r_die',  0) or 0), ef_key='Trans_Railway_Die') +
-        float(d.get('r_elec', 0) or 0) * EF['Trans_Railway_Ele']['co2']
-    )
-
-    # ── WATERBORNE NAVIGATION ────────────────────────────────────────
-    water = (
-        emit(kl=float(d.get('w_die', 0) or 0), ef_key='Trans_Water_Die') +
-        emit(kl=float(d.get('w_pet', 0) or 0), ef_key='Trans_Water_Pet')
-    )
-
-    # ── AVIATION ─────────────────────────────────────────────────────
-    aviation = (
-        emit(kl=float(d.get('av_gas', 0) or 0), ef_key='Trans_AvGasoline') +
-        emit(kl=float(d.get('av_jet', 0) or 0), ef_key='Trans_JetKerosene')
-    )
-
-    return {
-        'On Road':               on_road,
-        'Railway':               railway,
-        'Water Borne Navigation':water,
-        'Aviation':              aviation,
-    }
-
+    
 # ─── SOLID WASTE ──────────────────────────────────────────────────────────────
 def calc_solid_waste(d):
     """
