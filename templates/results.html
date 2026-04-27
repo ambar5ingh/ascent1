@@ -241,6 +241,18 @@
   </footer>
  
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <!-- Patch: intercept /api/calculate to save inputs in localStorage for sub-pages -->
+  <script>
+    (function () {
+      const _origFetch = window.fetch;
+      window.fetch = function (url, opts) {
+        if (typeof url === "string" && url.includes("/api/calculate") && opts && opts.body) {
+          try { localStorage.setItem("ascent_inputs", opts.body); } catch (e) {}
+        }
+        return _origFetch.apply(this, arguments);
+      };
+    })();
+  </script>
   <script src="{{ url_for('static', filename='js/results.js') }}"></script>
 </body>
 </html>
