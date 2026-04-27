@@ -122,10 +122,6 @@
             <input type="number" name="area_sqkm" class="field-input" placeholder="e.g. 150" min="1" required/>
           </div>
           <div class="field-group">
-            <label class="field-label">Base Year</label>
-            <input type="number" name="base_year" class="field-input" value="2023" min="2000" max="2030"/>
-          </div>
-          <div class="field-group">
             <label class="field-label">Annual Population Growth Rate (avg. last 10 yrs)</label>
             <div class="input-with-unit">
               <input type="number" name="pop_growth_rate" id="popGrowthRate" class="field-input" placeholder="e.g. 2.0" min="0" max="20" step="0.1"/>
@@ -161,7 +157,7 @@
             </div>
           </div>
           <div class="field-group">
-            <label class="field-label">GDP</label>
+            <label class="field-label">GDP (Crore ₹)</label>
             <div class="input-with-unit">
               <input type="number" name="gdp" class="field-input" placeholder="e.g. 25000" min="0" step="1"/>
               <span class="unit-badge">Cr ₹</span>
@@ -174,14 +170,124 @@
               <span class="unit-badge">%</span>
             </div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Annual Growth Rate (BAU)</label>
-            <div class="input-with-unit">
-              <input type="number" name="growth_rate" class="field-input" value="3" min="0" max="20" step="0.1"/>
-              <span class="unit-badge">%</span>
-            </div>
-          </div>
         </div>
+
+        <!-- ── Base Year and Target Years Table ── -->
+        <div class="bty-table-wrap">
+          <div class="bty-table-title">Base Year and Target Years</div>
+          <div class="bty-table-scroll">
+            <table class="bty-table" id="btyTable">
+              <thead>
+                <tr>
+                  <th>Particulars</th>
+                  <th>Value (Year)</th>
+                  <th>Avg Annual Population Growth Rate (%)</th>
+                  <th>GDP / Capita Growth Rate (%)</th>
+                  <th>Population &amp; GDP Growth Rate Factor (%)</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="bty-row">
+                  <td class="bty-label">Base Year</td>
+                  <td><input type="number" name="base_year" class="field-input bty-input" value="2025" min="2000" max="2030"/></td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="base_pop_growth" class="field-input bty-input bty-pop-rate" data-row="base" value="2.00" min="0" max="20" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="base_gdp_growth" class="field-input bty-input bty-gdp-rate" data-row="base" value="3.00" min="0" max="30" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="base_growth_factor" id="btyFactorBase" class="field-input bty-input readonly-input" readonly/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td><input type="text" name="base_source" class="field-input bty-input bty-source" placeholder="e.g. Census 2011"/></td>
+                </tr>
+                <tr class="bty-row">
+                  <td class="bty-label">Interim Year 1</td>
+                  <td><input type="number" name="interim1" class="field-input bty-input" value="2030" min="2025" max="2060"/></td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim1_pop_growth" class="field-input bty-input bty-pop-rate" data-row="interim1" value="3.00" min="0" max="20" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim1_gdp_growth" class="field-input bty-input bty-gdp-rate" data-row="interim1" value="4.00" min="0" max="30" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim1_growth_factor" id="btyFactorInterim1" class="field-input bty-input readonly-input" readonly/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td><input type="text" name="interim1_source" class="field-input bty-input bty-source" placeholder="Source"/></td>
+                </tr>
+                <tr class="bty-row">
+                  <td class="bty-label">Interim Year 2</td>
+                  <td><input type="number" name="interim2" class="field-input bty-input" value="2040" min="2025" max="2060"/></td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim2_pop_growth" class="field-input bty-input bty-pop-rate" data-row="interim2" value="1.50" min="0" max="20" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim2_gdp_growth" class="field-input bty-input bty-gdp-rate" data-row="interim2" value="2.50" min="0" max="30" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="interim2_growth_factor" id="btyFactorInterim2" class="field-input bty-input readonly-input" readonly/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td><input type="text" name="interim2_source" class="field-input bty-input bty-source" placeholder="Source"/></td>
+                </tr>
+                <tr class="bty-row">
+                  <td class="bty-label">Target Year</td>
+                  <td><input type="number" name="target_year" class="field-input bty-input" value="2050" min="2030" max="2070"/></td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="target_pop_growth" class="field-input bty-input bty-pop-rate" data-row="target" value="4.00" min="0" max="20" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="target_gdp_growth" class="field-input bty-input bty-gdp-rate" data-row="target" value="4.50" min="0" max="30" step="0.01"/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="input-with-unit">
+                      <input type="number" name="target_growth_factor" id="btyFactorTarget" class="field-input bty-input readonly-input" readonly/>
+                      <span class="unit-badge">%</span>
+                    </div>
+                  </td>
+                  <td><input type="text" name="target_source" class="field-input bty-input bty-source" placeholder="Source"/></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="bty-note">
+            <strong>Growth Factor (%)</strong> = (1 + Pop Rate/100) × (1 + GDP Rate/100) − 1 × 100. Used for BAU projections per period.
+          </p>
+        </div>
+
       </div>
 
       <!-- ══════════════ SECTION 1: Energy / Buildings ══════════════ -->
@@ -701,22 +807,11 @@
           <div class="section-number">07</div>
           <div>
             <h2 class="section-title">Target & Scenario Settings</h2>
-            <p class="section-desc">Define your planning horizon and ambition level</p>
+            <p class="section-desc">Set your ambition level and technology pathways</p>
           </div>
         </div>
+
         <div class="field-grid">
-          <div class="field-group">
-            <label class="field-label">Interim Year 1</label>
-            <input type="number" name="interim1" class="field-input" value="2030" min="2025" max="2060"/>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Interim Year 2</label>
-            <input type="number" name="interim2" class="field-input" value="2040" min="2025" max="2060"/>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Target Year</label>
-            <input type="number" name="target_year" class="field-input" value="2050" min="2030" max="2070"/>
-          </div>
           <div class="field-group">
             <label class="field-label">Reduction Target vs BAU</label>
             <div class="input-with-unit">
@@ -788,6 +883,122 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
   <script src="{{ url_for('static', filename='js/cities.js') }}"></script>
   <script src="{{ url_for('static', filename='js/form.js') }}"></script>
+  <style>
+    /* ── Base & Target Year Table ─────────────────────────────── */
+    .bty-table-wrap {
+      margin: 1.25rem 0 0;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #dde3ef;
+      overflow: hidden;
+    }
+    .bty-table-title {
+      background: #1a2744;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      padding: 0.6rem 1.1rem;
+      letter-spacing: 0.03em;
+    }
+    .bty-table-scroll { overflow-x: auto; }
+    .bty-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      min-width: 700px;
+    }
+    .bty-table thead tr th {
+      background: #1a2744;
+      color: #fff;
+      padding: 0.55rem 0.75rem;
+      text-align: center;
+      font-weight: 600;
+      border-right: 1px solid #2d3a5a;
+      white-space: nowrap;
+    }
+    .bty-table tbody tr { border-bottom: 1px solid #e8ecf5; }
+    .bty-table tbody tr:nth-child(odd) { background: #f0f4fb; }
+    .bty-table tbody tr:nth-child(even) { background: #e8f4f3; }
+    .bty-table td {
+      padding: 0.45rem 0.6rem;
+      vertical-align: middle;
+      border-right: 1px solid #dde3ef;
+    }
+    .bty-label {
+      font-weight: 600;
+      color: #1a2744;
+      white-space: nowrap;
+      min-width: 110px;
+    }
+    .bty-input {
+      min-width: 80px;
+      width: 100%;
+      font-size: 0.82rem !important;
+      padding: 0.35rem 0.5rem !important;
+    }
+    .bty-source { min-width: 110px; }
+    .bty-note {
+      font-size: 0.77rem;
+      color: #555;
+      padding: 0.5rem 1rem 0.6rem;
+      background: #f7f9fc;
+      border-top: 1px solid #dde3ef;
+      margin: 0;
+    }
+    .field-hint { font-size: 0.74rem; color: #888; margin-top: 2px; display: block; }
+  </style>
+  <script>
+    // ── Growth Factor Auto-calculation ───────────────────────
+    (function () {
+      const rows = [
+        { pop: 'base_pop_growth',     gdp: 'base_gdp_growth',     factorId: 'btyFactorBase' },
+        { pop: 'interim1_pop_growth', gdp: 'interim1_gdp_growth', factorId: 'btyFactorInterim1' },
+        { pop: 'interim2_pop_growth', gdp: 'interim2_gdp_growth', factorId: 'btyFactorInterim2' },
+        { pop: 'target_pop_growth',   gdp: 'target_gdp_growth',   factorId: 'btyFactorTarget' },
+      ];
+
+      function calcFactor(popRate, gdpRate) {
+        // Factor % = ((1 + pop/100) * (1 + gdp/100) - 1) * 100
+        return ((1 + popRate / 100) * (1 + gdpRate / 100) - 1) * 100;
+      }
+
+      function updateFactor(row) {
+        const popEl    = document.querySelector(`[name="${row.pop}"]`);
+        const gdpEl    = document.querySelector(`[name="${row.gdp}"]`);
+        const factorEl = document.getElementById(row.factorId);
+        if (!popEl || !gdpEl || !factorEl) return;
+        const p = parseFloat(popEl.value);
+        const g = parseFloat(gdpEl.value);
+        if (!isNaN(p) && !isNaN(g)) {
+          factorEl.value = calcFactor(p, g).toFixed(2);
+        } else {
+          factorEl.value = '';
+        }
+      }
+
+      rows.forEach(row => {
+        const popEl = document.querySelector(`[name="${row.pop}"]`);
+        const gdpEl = document.querySelector(`[name="${row.gdp}"]`);
+        if (popEl) popEl.addEventListener('input', () => updateFactor(row));
+        if (gdpEl) gdpEl.addEventListener('input', () => updateFactor(row));
+        // Initial calc on load
+        updateFactor(row);
+      });
+
+      // Also sync pop_growth_rate (basic info) → base_pop_growth default
+      const popGlobalEl = document.getElementById('popGrowthRate');
+      const basePopEl   = document.querySelector('[name="base_pop_growth"]');
+      if (popGlobalEl && basePopEl) {
+        popGlobalEl.addEventListener('input', () => {
+          if (basePopEl.value === '' || basePopEl.dataset.userEdited !== 'true') {
+            basePopEl.value = popGlobalEl.value;
+            updateFactor(rows[0]);
+          }
+        });
+        basePopEl.addEventListener('input', () => { basePopEl.dataset.userEdited = 'true'; });
+      }
+    })();
+  </script>
   <script>
     // Auto-calculate Average Temperature from Min + Max
     (function () {
