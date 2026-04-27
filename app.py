@@ -1259,28 +1259,73 @@ def calc_ippu(d):
 # ─── BAU PROJECTIONS ─────────────────────────────────────────────────────────
 def calc_bau(base_emissions_by_sector, d, year):
     """
-    Mirrors: BAU Scenario sheet
-    Projection = Base * growth_factor^(year-base_year)
-    Growth method: Population Growth Rate (as selected in BAU Scenario sheet)
+    Mirrors: BAU Scenario sheet — per-period growth using Population & GDP Growth Factor.
+    Each planning period (base→interim1, interim1→interim2, interim2→target) uses
+    its own compound growth factor derived from pop_growth and gdp_growth inputs.
+ 
+    Growth Factor (per period) = (1 + pop_rate/100) * (1 + gdp_rate/100) - 1
+    Projection compounds across periods up to the requested year.
+ 
     Special case: Railway stays flat from 2040 onwards (as in sheet R19)
     """
-    base_year   = int(d.get("base_year", 2025))
-    growth_rate = float(d.get("growth_rate", 0.03) or 0.03)
-    n = year - base_year
-    factor = (1 + growth_rate) ** n
-
+    base_year   = int(d.get("base_year",   2025))
+    interim1    = int(d.get("interim1",    2030))
+    interim2    = int(d.get("interim2",    2040))
+    target_year = int(d.get("target_year", 2050))
+ 
+    def period_factor(pop_key, gdp_key, fallback_rate=0.03):
+        """Compute compound growth factor for a period from pop + gdp rates."""
+        pop_rate = float(d.get(pop_key, d.get("pop_growth_rate", fallback_rate * 100)) or (fallback_rate * 100)) / 100.0
+        gdp_rate = float(d.get(gdp_key, d.get("gdp_growth_rate", fallback_rate * 100)) or (fallback_rate * 100)) / 100.0
+        return (1 + pop_rate) * (1 + gdp_rate) - 1
+ 
+    # Per-period annual growth rates
+    r_base    = period_factor("base_pop_growth",    "base_gdp_growth",    0.02)
+    r_interim1= period_factor("interim1_pop_growth","interim1_gdp_growth", 0.03)
+    r_interim2= period_factor("interim2_pop_growth","interim2_gdp_growth", 0.02)
+    r_target  = period_factor("target_pop_growth",  "target_gdp_growth",   0.03)
+ 
+    def compound_factor(yr):
+        """Compound growth factor from base_year to yr, using per-period rates."""
+        if yr <= base_year:
+            return 1.0
+ 
+        # Period 1: base → interim1
+        p1_end   = min(yr, interim1)
+        p1_years = max(0, p1_end - base_year)
+        f        = (1 + r_base) ** p1_years
+ 
+        if yr <= interim1:
+            return f
+ 
+        # Period 2: interim1 → interim2
+        p2_end   = min(yr, interim2)
+        p2_years = max(0, p2_end - interim1)
+        f       *= (1 + r_interim1) ** p2_years
+ 
+        if yr <= interim2:
+            return f
+ 
+        # Period 3: interim2 → target
+        p3_years = max(0, yr - interim2)
+        f       *= (1 + r_interim2) ** p3_years
+ 
+        return f
+ 
+    # Special factor for Railway (flat from 2040)
+    railway_flat_year = 2040
+    factor = compound_factor(year)
+ 
     projected = {}
     for sector, subsectors in base_emissions_by_sector.items():
         projected[sector] = {}
         for sub, val in subsectors.items():
-            if sector == "Transport" and sub == "Railway" and year >= 2040:
-                # Railway flat from 2040 (as seen in BAU Scenario R19)
-                factor_sub = (1 + growth_rate) ** (2040 - base_year)
+            if sector == "Transport" and sub == "Railway" and year >= railway_flat_year:
+                factor_sub = compound_factor(railway_flat_year)
             else:
                 factor_sub = factor
             projected[sector][sub] = val * factor_sub
     return projected
-
 
 # ─── TARGET SETTING ──────────────────────────────────────────────────────────
 def calc_targets(bau_totals, d):
