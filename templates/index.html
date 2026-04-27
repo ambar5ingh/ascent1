@@ -126,7 +126,56 @@
             <input type="number" name="base_year" class="field-input" value="2023" min="2000" max="2030"/>
           </div>
           <div class="field-group">
-            <label class="field-label">Annual Growth Rate</label>
+            <label class="field-label">Annual Population Growth Rate (avg. last 10 yrs)</label>
+            <div class="input-with-unit">
+              <input type="number" name="pop_growth_rate" id="popGrowthRate" class="field-input" placeholder="e.g. 2.0" min="0" max="20" step="0.1"/>
+              <span class="unit-badge">%</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Avg. Annual Rainfall</label>
+            <div class="input-with-unit">
+              <input type="number" name="annual_rainfall" class="field-input" placeholder="e.g. 800" min="0" step="1"/>
+              <span class="unit-badge">mm/yr</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Avg. Minimum Temperature</label>
+            <div class="input-with-unit">
+              <input type="number" name="temp_min" class="field-input" placeholder="e.g. 15" step="0.1"/>
+              <span class="unit-badge">°C</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Avg. Maximum Temperature</label>
+            <div class="input-with-unit">
+              <input type="number" name="temp_max" class="field-input" placeholder="e.g. 38" step="0.1"/>
+              <span class="unit-badge">°C</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Average Temperature <span class="auto-badge">Auto-calculated</span></label>
+            <div class="input-with-unit">
+              <input type="number" name="temp_avg" id="tempAvg" class="field-input readonly-input" readonly placeholder="Auto from min + max"/>
+              <span class="unit-badge">°C</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">GDP</label>
+            <div class="input-with-unit">
+              <input type="number" name="gdp" class="field-input" placeholder="e.g. 25000" min="0" step="1"/>
+              <span class="unit-badge">Cr ₹</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">GDP Annual Growth Rate</label>
+            <div class="input-with-unit">
+              <input type="number" name="gdp_growth_rate" class="field-input" placeholder="e.g. 7" min="0" max="30" step="0.1"/>
+              <span class="unit-badge">%</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Annual Growth Rate (BAU)</label>
             <div class="input-with-unit">
               <input type="number" name="growth_rate" class="field-input" value="3" min="0" max="20" step="0.1"/>
               <span class="unit-badge">%</span>
@@ -739,5 +788,26 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
   <script src="{{ url_for('static', filename='js/cities.js') }}"></script>
   <script src="{{ url_for('static', filename='js/form.js') }}"></script>
+  <script>
+    // Auto-calculate Average Temperature from Min + Max
+    (function () {
+      const tMin  = document.querySelector('[name="temp_min"]');
+      const tMax  = document.querySelector('[name="temp_max"]');
+      const tAvg  = document.getElementById('tempAvg');
+      function recalc() {
+        const mn = parseFloat(tMin.value);
+        const mx = parseFloat(tMax.value);
+        if (!isNaN(mn) && !isNaN(mx)) {
+          tAvg.value = ((mn + mx) / 2).toFixed(2);
+        } else {
+          tAvg.value = '';
+        }
+      }
+      if (tMin && tMax && tAvg) {
+        tMin.addEventListener('input', recalc);
+        tMax.addEventListener('input', recalc);
+      }
+    })();
+  </script>
 </body>
 </html>
