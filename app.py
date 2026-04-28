@@ -868,8 +868,7 @@ INDIA_CITIES = [
 def ef_total(key):
     """Return total CO2e EF for a named fuel key."""
     e = EF[key]
-    return e["co2"] + e["ch4"] + e["n2o"]
-
+    return e["co2"] + e["ch4"] * GWP_CH4 + e["n2o"] * GWP_N2O
 
 def calc_fuel_emission(activity_val, unit, ef_key):
     """
@@ -882,7 +881,7 @@ def calc_fuel_emission(activity_val, unit, ef_key):
         return activity_val * e["co2"]
     else:
         # already in TJ
-        return activity_val * (e["co2"] + e["ch4"] + e["n2o"])
+        return activity_val * (e["co2"] + e["ch4"] * GWP_CH4 + e["n2o"] * GWP_N2O)
 
 
 def fuel_to_tj(fuel_type, amount, input_unit):
@@ -975,7 +974,7 @@ def _calc_transport_fuel_sales(d):
         if kl > 0: tj = kl * EF[ef_key].get('conv_kl', 0)
         if t  > 0: tj = t  * FUEL_CONV.get(ef_key.split('_')[-1], {}).get('t_to_tj', 0)
         if kg > 0: tj = kg * FUEL_CONV.get('Hydrogen', {}).get('kg_to_tj', 0.12)
-        total_ef = e['co2'] + e['ch4'] * GWP_CH4 / 1000 + e['n2o'] * GWP_N2O / 1000
+        total_ef = e['co2'] + e['ch4'] * GWP_CH4 + e['n2o'] * GWP_N2O
         return tj * total_ef
  
     # ── ON ROAD ──────────────────────────────────────────────────────
