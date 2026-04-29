@@ -900,53 +900,75 @@ def fuel_to_tj(fuel_type, amount, input_unit):
 def calc_buildings(d):
     """
     Mirrors: Base Year GHG Inventory → Building and Energy Sector
-    Input units from form: TJ or MWh depending on fuel
+    Form field names (from index.html):
+      res_elec (MWh), res_lpg (t), res_firewood (t), res_kero (kL), res_png (t), res_coal (t), res_dg (kL)
+      com_elec (MWh), com_lpg (t), com_png (t), com_firewood (t), com_kero (kL)
+      ins_elec (MWh), ins_lpg (t)
+      ind_elec (MWh), ind_lpg (t), ind_coal (t), ind_diesel (kL), ind_natgas (t)
+      egen_coal (TJ), egen_natgas (TJ), egen_diesel (TJ)
+    All solid/liquid fuels converted to TJ before applying EF (t/TJ).
     """
     subs = {}
-
-    def sector_emit(prefix, fuels):
-        total = 0
-        for fuel_key, ef_key in fuels:
-            val = float(d.get(f"{prefix}_{fuel_key}", 0) or 0)
-            total += calc_fuel_emission(val, None, ef_key)
-        return total
-
-    subs["Residential"] = sector_emit("res", [
-        ("Electricity", "Res_Electricity"),
-        ("LPG",         "Res_LPG"),
-        ("Firewood",    "Res_Firewood"),
-        ("Kerosene",    "Res_Kerosene"),
-        ("PNG",         "Res_PNG"),
-        ("Coal",        "Res_Coal"),
-    ])
-    subs["Commercial"] = sector_emit("com", [
-        ("Electricity", "Com_Electricity"),
-        ("LPG",         "Com_LPG"),
-        ("PNG",         "Com_PNG"),
-        ("Firewood",    "Com_Firewood"),
-        ("Kerosene",    "Com_Kerosene"),
-    ])
-    subs["Public & Institutional"] = sector_emit("ins", [
-        ("Electricity", "Ins_Electricity"),
-        ("LPG",         "Ins_LPG"),
-    ])
-    subs["Industrial"] = sector_emit("ind", [
-        ("Electricity", "Ind_Electricity"),
-        ("LPG",         "Ind_LPG"),
-        ("Coal",        "Ind_Coal"),
-        ("Diesel",      "Ind_Diesel"),
-        ("PNG",         "Ind_PNG"),
-    ])
-
-    # Energy Industries (on-site generation)
-    ng_tj  = float(d.get("ng_tj", 0) or 0)
-    coal_tj= float(d.get("coal_tj", 0) or 0)
-    msw_pw = float(d.get("msw_pw", 0) or 0)    # MW installed for MSW
-    # Coal: tCO2e = coal_tj * (CO2+CH4+N2O)
-    egen_coal = coal_tj * (EF["EGen_Coal"]["co2"] + EF["EGen_Coal"]["ch4"] + EF["EGen_Coal"]["n2o"])
-    egen_gas  = ng_tj   * (EF["EGen_NatGas"]["co2"] + EF["EGen_NatGas"]["ch4"] + EF["EGen_NatGas"]["n2o"])
-    subs["Energy Generation"] = egen_coal + egen_gas
-
+ 
+    def emit_mwh(mwh, ef_key):
+        """Electricity: MWh * EF(t/MWh) -> tCO2e"""
+        return float(mwh or 0) * EF[ef_key]["co2"]
+ 
+    def emit_tj(tj, ef_key):
+        """Fuel already in TJ -> tCO2e (with GWP)"""
+        e = EF[ef_key]
+        return float(tj or 0) * (e["co2"] + e["ch4"] * GWP_CH4 + e["n2o"] * GWP_N2O)
+ 
+    def emit_t(tonnes, fuel_type, ef_key):
+        """tonnes → TJ → tCO2e"""
+        tj = fuel_to_tj(fuel_type, float(tonnes or 0), "tonne")
+        return emit_tj(tj, ef_key)
+ 
+    def emit_kl(kl, fuel_type, ef_key):
+        """kL → TJ → tCO2e"""
+        tj = fuel_to_tj(fuel_type, float(kl or 0), "kl")
+        return emit_tj(tj, ef_key)
+ 
+    g = d.get  # shorthand
+ 
+    subs["Residential"] = (
+        emit_mwh(g("res_elec",     0), "Res_Electricity") +
+        emit_t  (g("res_lpg",      0), "LPG",      "Res_LPG")      +
+        emit_t  (g("res_firewood", 0), "Firewood", "Res_Firewood")  +
+        emit_t  (g("res_png",      0), "PNG",      "Res_PNG")       +
+        emit_t  (g("res_coal",     0), "Coal",     "Res_Coal")      +
+        emit_kl (g("res_kero",     0), "Kerosene", "Res_Kerosene")  +
+        emit_kl (g("res_dg",       0), "Diesel",   "Res_Diesel_Genset")
+    )
+ 
+    subs["Commercial"] = (
+        emit_mwh(g("com_elec",     0), "Com_Electricity") +
+        emit_t  (g("com_lpg",      0), "LPG",      "Com_LPG")      +
+        emit_t  (g("com_png",      0), "PNG",      "Com_PNG")       +
+        emit_t  (g("com_firewood", 0), "Firewood", "Com_Firewood")  +
+        emit_kl (g("com_kero",     0), "Kerosene", "Com_Kerosene")
+    )
+ 
+    subs["Public & Institutional"] = (
+        emit_mwh(g("ins_elec", 0), "Ins_Electricity") +
+        emit_t  (g("ins_lpg",  0), "LPG", "Ins_LPG")
+    )
+ 
+    subs["Industrial"] = (
+        emit_mwh(g("ind_elec",   0), "Ind_Electricity") +
+        emit_t  (g("ind_lpg",    0), "LPG",     "Ind_LPG")    +
+        emit_t  (g("ind_coal",   0), "Coal",    "Ind_Coal")   +
+        emit_kl (g("ind_diesel", 0), "Diesel",  "Ind_Diesel") +
+        emit_t  (g("ind_natgas", 0), "NatGas",  "Ind_NatGas")
+    )
+ 
+    # Energy Generation — form sends TJ directly (egen_coal, egen_natgas, egen_diesel)
+    subs["Energy Generation"] = (
+        emit_tj(g("egen_coal",   0), "EGen_Coal")    +
+        emit_tj(g("egen_natgas", 0), "EGen_NatGas")  +
+        emit_tj(g("egen_diesel", 0), "EGen_Diesel")
+    )
+ 
     return subs
 
 
@@ -1069,48 +1091,48 @@ def calc_solid_waste(d):
     sw_tot = float(d.get("sw_tot", 0) or 0)   # tonne/day total MSW
     if sw_tot <= 0:
         return {"Solid Waste Disposal": 0.0, "Organic Waste Treatment": 0.0}
-
+ 
     sw_tpa = sw_tot * 365  # tonne/year
-
+ 
     # Waste fractions (default from E. Solid Waste sheet)
-    f_food  = float(d.get("sw_food_frac",  0.726) or 0.726)
-    f_paper = float(d.get("sw_paper_frac", 0.035) or 0.035)
-    f_other = 1.0 - f_food - f_paper
-
+    f_food  = float(d.get("sw_food_frac_pct", d.get("sw_food_frac", 72.6)) or 72.6) / 100.0
+    f_paper = float(d.get("sw_paper_frac_pct", d.get("sw_paper_frac", 3.5))  or 3.5)  / 100.0
+    f_other = max(0.0, 1.0 - f_food - f_paper)
+ 
     # Landfill fraction
-    lfm = float(d.get("sw_lfm", 0.85) or 0.85)    # managed landfill %
-    lfu = float(d.get("sw_lfu", 0.0)  or 0.0)      # unmanaged %
+    lfm = float(d.get("sw_lfm_pct", d.get("sw_lfm", 85.0)) or 85.0) / 100.0
+    lfu = float(d.get("sw_lfu_pct", d.get("sw_lfu", 0.0))  or 0.0)  / 100.0
     sw_landfill_tpa = sw_tpa * (lfm + lfu)
-
+ 
     # Weighted DOC
     doc_w = (f_food * SW_DOC["food"] + f_paper * SW_DOC["paper"] +
              f_other * SW_DOC.get("rubber", 0.0))
     doc_w = max(doc_w, 0.05)
-
+ 
     # IPCC FOD constants (from E. Solid Waste sheet R89-94)
     docf = 0.6    # fraction of DOC ultimately decomposed
     f_ch4 = 0.5   # fraction of CH4 in landfill gas
     ox = 0.1      # oxidation factor
     mcf_managed = 1.0  # managed landfill
-
+ 
     # CH4 emissions (tCH4)
     ch4_gen = sw_landfill_tpa * doc_w * docf * f_ch4 * (16.0/12.0) * mcf_managed
     ch4_emit = ch4_gen * (1.0 - ox)  # subtract oxidised
-
+ 
     # Collection / recovery (default 0 unless input)
-    collection_eff = float(d.get("sw_gas_collection", 0) or 0)
+    collection_eff = float(d.get("sw_gas_collection_pct", d.get("sw_gas_collection", 0)) or 0) / 100.0
     ch4_recovered  = ch4_emit * collection_eff
     ch4_net = ch4_emit - ch4_recovered
-
+ 
     tco2e_landfill = ch4_net * GWP_CH4
-
+ 
     # Organic waste treatment (incineration / composting)
-    inc_frac = float(d.get("sw_inc", 0.004) or 0.004)
+    inc_frac = float(d.get("sw_inc_pct", d.get("sw_inc", 0.4)) or 0.4) / 100.0
     inc_tpa  = sw_tpa * inc_frac
     # Incineration: IPCC default EF 91.7 tCO2/TJ for non-biomass MSW
     # Using simplified: 0.5 tCO2e/t for non-biomass fraction
     tco2e_inc = inc_tpa * 0.5
-
+ 
     return {
         "Solid Waste Disposal":    tco2e_landfill,
         "Organic Waste Treatment": tco2e_inc,
@@ -1128,7 +1150,7 @@ def calc_wastewater(d):
     lpcd       = float(d.get("ww_lpcd", 135) or 135)   # L/person/day
     bod_pc     = float(d.get("ww_bod", 34) or 34)       # g BOD/person/day (sheet default 34)
     tn_pc      = float(d.get("ww_tn", 0.026) or 0.026)  # kg N/person/day (Table default)
-
+ 
     # BOD total (kg/year)
     bod_total = population * bod_pc / 1000.0 * 365  # kg/year
     # Total Nitrogen
@@ -1137,17 +1159,17 @@ def calc_wastewater(d):
     co_factor = float(d.get("ww_co_factor", 1.0565) or 1.0565)
     bod_total *= co_factor
     tn_total  *= co_factor
-
-    # Treatment fractions
-    f_aer_not_well  = float(d.get("ww_aer", 0.17) or 0.17)
-    f_anaerobic_r   = float(d.get("ww_uasb", 0.09) or 0.09)
-    f_septic        = float(d.get("ww_sep", 0.0)  or 0.0)
-    f_open          = float(d.get("ww_open", 0.06) or 0.06)
-    f_untreated     = max(0.0, 1.0 - f_aer_not_well - f_anaerobic_r - f_septic - f_open)
-
+ 
+    # Treatment fractions — form sends ww_aer_pct etc. (0-100), convert to fraction
+    f_aer_not_well = float(d.get("ww_aer_pct",  d.get("ww_aer",  17.0)) or 17.0) / 100.0
+    f_anaerobic_r  = float(d.get("ww_uasb_pct", d.get("ww_uasb",  9.0)) or  9.0) / 100.0
+    f_septic       = float(d.get("ww_sep_pct",  d.get("ww_sep",   0.0)) or  0.0) / 100.0
+    f_open         = float(d.get("ww_open_pct", d.get("ww_open",  6.0)) or  6.0) / 100.0
+    f_untreated    = max(0.0, 1.0 - f_aer_not_well - f_anaerobic_r - f_septic - f_open)
+ 
     # B0 = 0.6 kg CH4/kg BOD (max capacity, from sheet R62)
     b0 = 0.6
-
+ 
     # CH4 by treatment type (kg CH4/yr)
     ch4_aer = bod_total * f_aer_not_well * b0 * WW_MCF["aerobic_ponds"]      # 0.0 (well managed)
     ch4_aer_nw = bod_total * f_aer_not_well * b0 * 0.3   # not well managed MCF=0.3
@@ -1155,19 +1177,18 @@ def calc_wastewater(d):
     ch4_septic= bod_total * f_septic * b0 * WW_MCF["septic"]
     ch4_open  = bod_total * f_open   * b0 * WW_MCF["open_discharge"]
     ch4_unt   = bod_total * f_untreated * b0 * 0.1
-
+ 
     ch4_total_kg = ch4_aer_nw + ch4_anaer + ch4_septic + ch4_open + ch4_unt
     ch4_total_t  = ch4_total_kg / 1000.0
     tco2e_ch4    = ch4_total_t * GWP_CH4
-
+ 
     # N2O from effluent (IPCC 2019 Eq 6.9)
     # N2O-N from effluent = TN * EF_effluent (0.005 kg N2O-N/kg N)
     n2o_n = tn_total * 0.005   # kg N2O-N/yr
     n2o_t = n2o_n * (44.0/28.0) / 1000.0  # tN2O/yr
     tco2e_n2o = n2o_t * GWP_N2O
-
+ 
     return {"Waste water": tco2e_ch4 + tco2e_n2o}
-
 
 # ─── AFOLU ────────────────────────────────────────────────────────────────────
 def calc_afolu(d):
@@ -1178,14 +1199,17 @@ def calc_afolu(d):
     """
     total_enteric = 0.0
     total_manure  = 0.0
-
+ 
+    # Form field names match AFOLU EF keys directly
     livestock_map = {
-        "dairy_cow":   ("af_dc",  "dairy_cow_indigenous"),
-        "nondairy_cow":("af_ndc", "nondairy_cow_adult"),
-        "buffalo_d":   ("af_bufd","dairy_buffalo"),
-        "buffalo_nd":  ("af_bufnd","dairy_cow_indigenous"),
-        "sheep":       ("af_sheep","sheep"),
-        "goat":        ("af_goat","goat"),
+        "dairy_cow_indigenous": ("dairy_cow_indigenous", "dairy_cow_indigenous"),
+        "dairy_cow_crossbred":  ("dairy_cow_crossbred",  "dairy_cow_crossbred"),
+        "nondairy_cow_adult":   ("nondairy_cow_adult",   "nondairy_cow_adult"),
+        "dairy_buffalo":        ("dairy_buffalo",        "dairy_buffalo"),
+        "sheep":                ("sheep",                "sheep"),
+        "goat":                 ("goat",                 "goat"),
+        "swine":                ("swine",                "swine"),
+        "poultry":              ("poultry",              "poultry"),
     }
     for ltype, (form_key, ef_key) in livestock_map.items():
         heads = float(d.get(form_key, 0) or 0)
@@ -1198,29 +1222,28 @@ def calc_afolu(d):
             ef_m = AFOLU_MANURE_CH4.get(ef_key, 0)
             ch4_m_t = heads * ef_m / 1000.0
             total_manure += ch4_m_t * GWP_CH4
-
+ 
     # Wetland rice CH4 (simple: area × EF)
-    wet_ha = float(d.get("af_wet", 0) or 0)
+    wet_ha = float(d.get("paddy_ha", d.get("af_wet", 0)) or 0)
     # IPCC default EF: 1.3 kgCH4/ha/day, 120 day season
     ch4_wet_t = wet_ha * 1.3 * 120 / 1000.0 if wet_ha > 0 else 0.0
     total_wetland = ch4_wet_t * GWP_CH4
-
+ 
     # Forestland CO2 sequestration (negative emissions)
-    forest_ha = float(d.get("af_fd", 0) or 0)
+    forest_ha = float(d.get("green_ha", d.get("af_fd", 0)) or 0)
     # Average growth 5 tCO2/ha/yr for tropical moist (IPCC Tier 1)
     seq_forest = -forest_ha * 5.0 if forest_ha > 0 else 0.0
-
+ 
     # Grassland / managed land (simplified)
-    grass_ha  = float(d.get("af_fm", 0) or 0)
+    grass_ha  = float(d.get("af_fm", 0) or 0)  # no separate grass field in form
     other_ha  = float(d.get("af_fo", 0) or 0)
     seq_land   = -(grass_ha + other_ha) * 1.5 if (grass_ha + other_ha) > 0 else 0.0
-
+ 
     return {
         "Live Stock":          total_enteric + total_manure + total_wetland,
         "Land Management":     seq_forest + seq_land,
         "Aggregate Sources":   0.0,
     }
-
 
 # ─── IPPU ─────────────────────────────────────────────────────────────────────
 def calc_ippu(d):
@@ -1229,31 +1252,31 @@ def calc_ippu(d):
     Mineral + Chemical + Metal industries
     """
     subs = {}
-
+ 
     # Cement (clinker-based, IPCC Eq 2.2 Tier 2)
-    clinker_t = float(d.get("ip_clink", 0) or 0)
-    cfrac     = float(d.get("ip_cfrac", 1.0) or 1.0)   # clinker-to-cement ratio default 1
-    subs["Mineral Industry"] = clinker_t * IPPU_EF["cement_clinker"] + \
-                                float(d.get("ip_lime", 0) or 0) * IPPU_EF["lime_high_ca"] + \
-                                float(d.get("ip_ls", 0) or 0)   * IPPU_EF["limestone"]
-
-    # Chemical (ammonia, HNO3)
-    nh3_t   = float(d.get("ip_nh3",  0) or 0)
-    hno3_t  = float(d.get("ip_hno3", 0) or 0)
-    n2o_hno3 = hno3_t * IPPU_EF["hno3_n2o"] / 1000.0 * GWP_N2O   # tN2O → tCO2e
+    # Form field names: cement_clinker, lime_high_ca, steel_bof, steel_eaf, ammonia, glass
+    clinker_t = float(d.get("cement_clinker", d.get("ip_clink", 0)) or 0)
+    subs["Mineral Industry"] = (
+        clinker_t * IPPU_EF["cement_clinker"] +
+        float(d.get("lime_high_ca", d.get("ip_lime", 0)) or 0) * IPPU_EF["lime_high_ca"]
+    )
+ 
+    # Chemical (ammonia)
+    nh3_t    = float(d.get("ammonia", d.get("ip_nh3", 0)) or 0)
+    hno3_t   = float(d.get("ip_hno3", 0) or 0)
+    n2o_hno3 = hno3_t * IPPU_EF["hno3_n2o"] / 1000.0 * GWP_N2O
     subs["Chemical Industry"] = nh3_t * IPPU_EF["ammonia"] + n2o_hno3
-
+ 
     # Metal (steel BOF/EAF)
-    bof_t = float(d.get("ip_bof", 0) or 0)
-    eaf_t = float(d.get("ip_eaf", 0) or 0)
+    bof_t = float(d.get("steel_bof", d.get("ip_bof", 0)) or 0)
+    eaf_t = float(d.get("steel_eaf", d.get("ip_eaf", 0)) or 0)
     subs["Metal Industry"] = bof_t * IPPU_EF["steel_bof"] + eaf_t * IPPU_EF["steel_eaf"]
-
-    subs["Non-Energy Products"]             = 0.0
+ 
+    subs["Non-Energy Products"] = float(d.get("glass", 0) or 0) * IPPU_EF["glass_ef"]
     subs["Ozone Depleting Substances"]      = 0.0
     subs["Other Product Manufacture and Use"]= 0.0
-
+ 
     return subs
-
 
 # ─── BAU PROJECTIONS ─────────────────────────────────────────────────────────
 def calc_bau(base_emissions_by_sector, d, year):
